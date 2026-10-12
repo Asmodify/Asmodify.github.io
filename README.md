@@ -2,4 +2,4 @@
 
 Personal portfolio of Khuslen (@Asmodify), served by GitHub Pages at https://asmodify.github.io.
 
-One static `index.html`, no build step. Edit it and push to `main` to update the site.
+`index.html` is a drivable Three.js world (three.js r128 vendored in `vendor/`); `classic.html` is the plain one-page portfolio. No build step: edit and push to `main`.
