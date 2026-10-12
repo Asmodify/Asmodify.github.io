@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Khuslen, software developer at OpenDevelopment: fleet telemetry, fuel monitoring and Mongolian sentiment analysis.">
+<title>Khuslen · Developer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a dispatcher's route log. A narrow masthead, then projects as "stops" along a vertical route line, each with its own telemetry readout. */
+:root {
+  --bg: #f3f5f7;
+  --surface: #ffffff;
+  --ink: #141a22;
+  --muted: #56606d;
+  --line: #d6dce3;
+  --accent: #1f4fd1;      /* khökh: Mongolian blue */
+  --signal: #c97a12;      /* saffron, used for live / in-production marks */
+  --accent-soft: #e3eafb;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1218; --surface: #161c25; --ink: #e6eaf0; --muted: #96a1b0; --line: #2a3340;
+    --accent: #7ea2ff; --signal: #e6a24a; --accent-soft: #1b2640; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1218; --surface: #161c25; --ink: #e6eaf0; --muted: #96a1b0; --line: #2a3340;
+  --accent: #7ea2ff; --signal: #e6a24a; --accent-soft: #1b2640; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--body); font-size: 1rem; line-height: 1.6;
+  margin: 0; padding-inline: 20px; padding-block: 0 64px;
+}
+.wrap { max-width: 980px; margin: 0 auto; }
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.label {
+  font-family: var(--mono); font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+}
+
+/* Masthead */
+header.top {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding-block: 20px; border-bottom: 1px solid var(--line);
+}
+header.top nav { display: flex; gap: 20px; flex-wrap: wrap; font-size: .92rem; }
+header.top nav a { color: var(--ink); text-decoration: none; }
+header.top nav a:hover { color: var(--accent); }
+
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 40px; padding-block: 64px 48px; align-items: end; }
+.hero h1 {
+  font-size: clamp(2.6rem, 7vw, 5.2rem); line-height: .95; font-weight: 800; font-stretch: 118%;
+  letter-spacing: -.01em;
+}
+.hero h1 span { color: var(--accent); }
+.hero p.lede { max-width: 58ch; font-size: 1.15rem; color: var(--muted); margin: 24px 0 0; }
+.hero p.lede strong { color: var(--ink); font-weight: 600; }
+.coords { border-left: 2px solid var(--accent); padding-left: 16px; display: grid; gap: 10px; }
+.coords div { display: grid; gap: 0; }
+.coords .v { font-family: var(--mono); font-size: .95rem; }
+.cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 4px;
+  font-weight: 600; font-size: .95rem; text-decoration: none; border: 1px solid var(--accent);
+}
+.btn.primary { background: var(--accent); color: var(--bg); }
+.btn.ghost { color: var(--accent); }
+.btn:hover { filter: brightness(1.08); }
+
+/* Stack strip */
+.stack { display: flex; flex-wrap: wrap; gap: 8px 22px; padding-block: 18px; border-block: 1px solid var(--line); }
+.stack span { font-family: var(--mono); font-size: .85rem; }
+.stack b { color: var(--accent); font-weight: 500; }
+
+/* Route */
+section { padding-top: 64px; }
+.sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+.sec-head h2 { font-size: clamp(1.6rem, 3.4vw, 2.2rem); font-stretch: 110%; font-weight: 750; }
+
+.route { position: relative; display: grid; gap: 28px; padding-left: 36px; }
+.route::before { content: ""; position: absolute; left: 9px; top: 8px; bottom: 8px; width: 2px;
+  background: repeating-linear-gradient(to bottom, var(--line) 0 6px, transparent 6px 12px); }
+.stop { position: relative; }
+.stop::before { content: ""; position: absolute; left: -33px; top: 26px; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--bg); border: 3px solid var(--accent); }
+.stop.live::before { border-color: var(--signal); background: var(--signal); box-shadow: 0 0 0 5px color-mix(in srgb, var(--signal) 22%, transparent); }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 24px;
+  display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 28px; }
+.card h3 { font-size: 1.45rem; font-weight: 700; font-stretch: 108%; }
+.card .kicker { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.pill { font-family: var(--mono); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+.pill.live { border-color: var(--signal); color: var(--signal); }
+.card p { margin: 10px 0 0; max-width: 62ch; }
+.card ul { margin: 12px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.card li::marker { color: var(--accent); }
+.readout { border-left: 1px solid var(--line); padding-left: 20px; display: grid; gap: 14px; align-content: start; }
+.readout dl { margin: 0; display: grid; gap: 12px; }
+.readout dt { font-family: var(--mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.readout dd { margin: 0; font-family: var(--mono); font-size: .88rem; }
+.repos { display: flex; flex-wrap: wrap; gap: 6px 12px; font-family: var(--mono); font-size: .82rem; }
+.repos .priv { color: var(--muted); }
+
+/* Earlier work */
+.early { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; }
+.early article { border-top: 2px solid var(--line); padding-top: 14px; }
+.early h3 { font-size: 1.1rem; font-weight: 650; }
+.early p { margin: 6px 0 0; color: var(--muted); font-size: .95rem; }
+
+/* About / contact */
+.about { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 40px; }
+.about p { margin: 0 0 14px; max-width: 62ch; }
+.facts { display: grid; gap: 0; border-top: 1px solid var(--line); }
+.facts div { display: flex; justify-content: space-between; gap: 16px; padding-block: 10px; border-bottom: 1px solid var(--line); }
+.facts div span:last-child { text-align: right; }
+footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: .88rem; }
+
+@media (max-width: 760px) {
+  .hero { grid-template-columns: 1fr; padding-block: 40px 32px; gap: 28px; }
+  .card { grid-template-columns: 1fr; gap: 18px; padding: 20px; }
+  .readout { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: 16px; }
+  .about { grid-template-columns: 1fr; }
+  .route { padding-left: 28px; }
+  .route::before { left: 6px; }
+  .stop::before { left: -28px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stop.live::before { animation: ping 2.4s ease-out infinite; }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 45%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <a href="#top" class="mono" style="color:var(--ink);text-decoration:none;font-weight:500">khuslen@ub:~$</a>
+    <nav aria-label="Sections">
+      <a href="#work">Work</a>
+      <a href="#early">Earlier</a>
+      <a href="#about">About</a>
+      <a href="https://github.com/Asmodify">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="hero" id="top">
+    <div>
+      <p class="label">Software developer · OpenDevelopment</p>
+      <h1>Khuslen.<br><span>I build systems that keep fleets moving.</span></h1>
+      <p class="lede">I write <strong>Python</strong> and <strong>JavaScript</strong> back ends, <strong>Next.js</strong> dashboards and <strong>Flutter</strong> apps. Day to day that means GPS telemetry, fuel accounting and dispatch for trucking operations in Mongolia. My diploma thesis applied the same pipeline thinking to social media sentiment.</p>
+      <div class="cta">
+        <a class="btn primary" href="#work">See the work</a>
+        <a class="btn ghost" href="https://github.com/Asmodify">github.com/Asmodify</a>
+      </div>
+    </div>
+    <div class="coords" aria-label="Quick facts">
+      <div><span class="label">Based in</span><span class="v">Ulaanbaatar · 47.92° N, 106.92° E</span></div>
+      <div><span class="label">Study</span><span class="v">Information Systems, MUST SICT</span></div>
+      <div><span class="label">Main language</span><span class="v">Python 3</span></div>
+      <div><span class="label">Status</span><span class="v" style="color:var(--signal)">● shipping Open T</span></div>
+    </div>
+  </div>
+
+  <div class="stack" aria-label="Tools I use">
+    <span><b>py</b> FastAPI · SQLAlchemy · scikit-learn · Selenium</span>
+    <span><b>js</b> Node · Express · Next.js 16 · React 19</span>
+    <span><b>dart</b> Flutter · Riverpod · go_router</span>
+    <span><b>db</b> MongoDB · PostgreSQL · SQLite · Firestore</span>
+    <span><b>ops</b> Vercel · Render · Docker · Supabase</span>
+  </div>
+
+  <section id="work">
+    <div class="sec-head">
+      <h2>Selected work</h2>
+      <span class="label">Newest first · ● in production</span>
+    </div>
+
+    <div class="route">
+      <div class="stop live">
+        <article class="card">
+          <div>
+            <div class="kicker"><span class="pill live">In production</span><span class="label">2026 · OpenDevelopment</span></div>
+            <h3>Open T fleet platform</h3>
+            <p>Internal transport management for a trucking company: vehicles, drivers, dispatch, fuel, inspections, maintenance and reporting, as one API with two clients.</p>
+            <ul>
+              <li><b>API:</b> Node and Express on MongoDB, 24 route groups, Socket.IO live tracking with a REST polling fallback, scheduled reports and expiry reminders.</li>
+              <li><b>Admin console:</b> Next.js 16 and React 19 with Leaflet maps and Recharts, covering dispatch, rigs, owner-operators, repairs and printable handover acts.</li>
+              <li><b>Driver app:</b> Flutter with Riverpod, shifts, jobs, fuel entries, documents and notifications.</li>
+              <li>Citizen identity and vehicle registry lookups through Mongolia's DAN OAuth service, with phone OTP for privileged roles.</li>
+            </ul>
+          </div>
+          <aside class="readout">
+            <dl>
+              <div><dt>Role</dt><dd>Full-stack developer</dd></div>
+              <div><dt>Stack</dt><dd>Express · Mongoose · Next.js · Flutter</dd></div>
+              <div><dt>Data models</dt><dd>34</dd></div>
+            </dl>
+            <div class="repos"><span class="priv">opendev_server 🔒</span><span class="priv">opendev_admin 🔒</span><span class="priv">opendev_app 🔒</span></div>
+          </aside>
+        </article>
+      </div>
+
+      <div class="stop live">
+        <article class="card">
+          <div>
+            <div class="kicker"><span class="pill live">In use</span><span class="label">Sep 2026</span></div>
+            <h3>Fuel Tank Warner</h3>
+            <p>Watches every vehicle on the company's GPS server and raises an alert when fuel disappears, a tracker is tampered with, or a truck idles, speeds or goes silent. It runs on one office PC with a double-click start.</p>
+            <ul>
+              <li>Backfills seven days of history on first start, then only notifies on new events.</li>
+              <li>Per-tank calibration tables turn raw sensor readings into litres.</li>
+              <li>Writes every refuel and suspected drain to an Excel ledger with map links and a verdict column.</li>
+              <li>Fleet, map, alerts and report views pushed live over server-sent events.</li>
+            </ul>
+          </div>
+          <aside class="readout">
+            <dl>
+              <div><dt>Role</dt><dd>Sole developer</dd></div>
+              <div><dt>Stack</dt><dd>Node 24 · SQLite · SSE</dd></div>
+              <div><dt>Unit</dt><dd>litres, Ulaanbaatar time</dd></div>
+            </dl>
+            <div class="repos"><a href="https://github.com/Asmodify/OpendeGPS-fuel-notify">OpendeGPS-fuel-notify ↗</a></div>
+          </aside>
+        </article>
+      </div>
+
+      <div class="stop">
+        <article class="card">
+          <div>
+            <div class="kicker"><span class="pill">Diploma thesis</span><span class="label">2026 · MUST SICT</span></div>
+            <h3>SentimentAI</h3>
+            <p>Collects public Facebook page posts and comments, scores them for sentiment, finds topics and predicts engagement, then writes AI reports in Mongolian. The thesis defence version.</p>
+            <ul>
+              <li>Four swappable sentiment back ends: lexicon, transformer, a fine-tuned Mongolian BERT, and a LoRA-tuned LLM served through Ollama.</li>
+              <li>LDA topic modelling, trend detection and an engagement model in scikit-learn.</li>
+              <li>Next.js dashboard behind an auth proxy, with Gemini for reports and Q&amp;A, and a demo snapshot when the API is unreachable.</li>
+              <li>CI runs pytest and ruff for the API, eslint, tsc, vitest and a full build for the front end.</li>
+            </ul>
+          </div>
+          <aside class="readout">
+            <dl>
+              <div><dt>Role</dt><dd>Author</dd></div>
+              <div><dt>Stack</dt><dd>FastAPI · SQLAlchemy · Next.js 16 · Gemini</dd></div>
+              <div><dt>Language</dt><dd>Mongolian NLP</dd></div>
+            </dl>
+            <div class="repos"><span class="priv">MAX-Diplom.sentimant.ai 🔒</span></div>
+          </aside>
+        </article>
+      </div>
+
+      <div class="stop">
+        <article class="card">
+          <div>
+            <div class="kicker"><span class="pill">Thesis prototype</span><span class="label">2025 – 2026</span></div>
+            <h3>Social media collection and prediction system</h3>
+            <p>The first iteration of the thesis: a Selenium scraper and FastAPI service on Render feeding a React 19 and Vite dashboard on Vercel, with Firestore storage and Gemini analysis.</p>
+            <ul>
+              <li>Reported 91% sentiment accuracy and 87% engagement-prediction relevance on the thesis dataset.</li>
+              <li>SQLite fallback when the cloud database is unreachable.</li>
+            </ul>
+          </div>
+          <aside class="readout">
+            <dl>
+              <div><dt>Role</dt><dd>Author</dd></div>
+              <div><dt>Stack</dt><dd>FastAPI · Selenium · React · Firestore</dd></div>
+            </dl>
+            <div class="repos"><a href="https://github.com/Asmodify/Diplom-Data">Diplom-Data ↗</a></div>
+          </aside>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="early">
+    <div class="sec-head">
+      <h2>Earlier work</h2>
+      <span class="label">Learning Flutter, 2024</span>
+    </div>
+    <div class="early">
+      <article>
+        <h3>Mongol BUS terminal</h3>
+        <p>A bus terminal app built for my internship practicum, with log-in and sign-up flows. Private repo.</p>
+      </article>
+      <article>
+        <h3><a href="https://github.com/Asmodify/REAL-AS-BUS-">REAL-AS-BUS ↗</a></h3>
+        <p>A Flutter follow-up to the terminal app: intro, log-in, sign-up and a front page, plus a CargoTracker prototype.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="about">
+    <div class="sec-head"><h2>About</h2></div>
+    <div class="about">
+      <div>
+        <p>I'm a developer at OpenDevelopment and an Information Systems student at the Mongolian University of Science and Technology. Most of my work sits between hardware in the field and the people who run it: GPS trackers and fuel sensors on one side, dispatchers and accountants on the other.</p>
+        <p>I reach for Python first, and I'm comfortable across the stack when the job needs Node, TypeScript or Dart. I care about software that a non-technical office can actually run: one-click starts, Excel exports people already trust, and alerts that only fire when something is wrong.</p>
+      </div>
+      <div class="facts">
+        <div><span class="label">GitHub</span><span><a href="https://github.com/Asmodify">@Asmodify</a></span></div>
+        <div><span class="label">Employer</span><span>OpenDevelopment</span></div>
+        <div><span class="label">University</span><span>MUST, School of ICT</span></div>
+        
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>© 2026 Khuslen</span>
+    <span class="mono">Built as a single static page</span>
+  </footer>
+</div>
+</body>
+</html>
