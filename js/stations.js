@@ -15,15 +15,20 @@
     for (let py = 0; py < 44; py += step) for (let px = 0; px < 260; px += step) if (d[(py * 260 + px) * 4 + 3] > 140) cells.push([px, py]);
     const letters = new T.InstancedMesh(boxG, W.mat('#ffffff'), cells.length);
     letters.castShadow = letters.receiveShadow = true;
-    const dark = new T.Color('#1c1b19'), blue = new T.Color('#1f4fd1'), proxies = [];
+    const dark = new T.Color('#1c1b19'), blue = new T.Color('#1f4fd1'), proxies = [], bodies = [];
     cells.forEach(([px, py], i) => {
       const o = new T.Object3D(); o.scale.set(S, S * 1.1, S);
       o.position.set((px - 130) / step * S * 1.02, 0, -16 + (py - 22) / step * S * 1.02);
-      W.pushable(o, S * .55, S * .62, { tag: 'letter' });
+      bodies.push(W.pushable(o, S * .55, S * .62, { tag: 'letter' }));
       letters.setColorAt(i, px > 150 ? blue : dark); proxies.push(o);
     });
     letters.instanceColor.needsUpdate = true; W.scene.add(letters);
-    W.onUpdate(() => { proxies.forEach((o, i) => { o.updateMatrix(); letters.setMatrixAt(i, o.matrix); }); letters.instanceMatrix.needsUpdate = true; });
+    let lettersDirty = true; // sync while any block moves, plus one frame after it settles (and once on reset)
+    W.onReset(() => { lettersDirty = true; });
+    W.onUpdate(() => {
+      const moving = bodies.some(b => !b.rest); if (!moving && !lettersDirty) return;
+      proxies.forEach((o, i) => { o.updateMatrix(); letters.setMatrixAt(i, o.matrix); }); letters.instanceMatrix.needsUpdate = true; lettersDirty = moving;
+    });
     const sub = W.decal(W.textTex(['', 'software developer · fleet systems · python first'], { w: 1400, h: 120, sub: '500 46px "IBM Plex Mono"' }), 30, 2.6);
     W.place(sub, 0, -10.6, .04); W.scene.add(sub);
 
@@ -96,7 +101,7 @@
       [[-2.8, -1.8], [2.8, -1.8], [-2.8, 1.8], [2.8, 1.8]].forEach(([x, z]) => g.add(W.cyl(.18, .18, 4.1, M.white, x, 2.05, z)));
       [-1.2, 1.2].forEach(x => { g.add(W.box(.9, 1.6, .6, M.white, x, .8, 0), W.box(.6, .4, .05, M.glass, x, 1.2, .33)); });
       W.scene.add(W.shadowed(g)); W.solid(s.x + 6.3, s.z - 1, .8); W.solid(s.x + 8.7, s.z - 1, .8);
-      for (let i = 0; i < 6; i++) { const m = new T.Mesh(new T.ConeGeometry(.4, 1.1, 12), M.cone); m.position.set(s.x - 6, 0, s.z - 6 + i * 2.2); W.pushable(m, .55, .5, { tag: 'cone' }); }
+      for (let i = 0; i < 6; i++) { const m = new T.Mesh(coneG, M.cone); m.position.set(s.x - 6, 0, s.z - 6 + i * 2.2); W.pushable(m, .55, .5, { tag: 'cone' }); }
     })();
     (() => { // SentimentAI billboard with the real dashboard, plus comment bubbles
       const s = defs[2], g = new T.Group(); W.place(g, s.x - 1, s.z - 8); g.rotation.y = .35;
@@ -105,7 +110,7 @@
       const screen = new T.Mesh(new T.PlaneGeometry(10, 6.8), new T.MeshBasicMaterial({ map: tex })); screen.position.set(0, 5.2, .21); g.add(screen);
       W.scene.add(W.shadowed(g)); W.solid(s.x - 2.2, s.z - 8.2, 1.4); W.solid(s.x + .5, s.z - 7.6, 1.4); W.solid(s.x + 2.4, s.z - 7, 1.4); W.solid(s.x - 4.4, s.z - 9, 1.4);
       const bm = [W.mat('#1d8a5b'), W.mat('#d2473b'), W.mat('#9aa1a6')];
-      for (let i = 0; i < 9; i++) { const b = new T.Mesh(new T.SphereGeometry(.5, 12, 8), bm[i % 3]); b.position.set(s.x - 7 + (i % 3) * 1.4, 0, s.z + 2 + Math.floor(i / 3) * 1.4); W.pushable(b, .5, .55, { tag: 'bubble' }); }
+      const bubbleG = new T.SphereGeometry(.5, 12, 8); for (let i = 0; i < 9; i++) { const b = new T.Mesh(bubbleG, bm[i % 3]); b.position.set(s.x - 7 + (i % 3) * 1.4, 0, s.z + 2 + Math.floor(i / 3) * 1.4); W.pushable(b, .5, .55, { tag: 'bubble' }); }
     })();
     (() => { // About: a small ger camp
       const s = defs[3];

@@ -20,10 +20,14 @@
   const dom = W.dom = { canvas: $('scene'), intro: $('intro'), panel: $('panel'), panelBody: $('panelBody'), toast: $('toast'), hud: $('hud-extra'), buttons: $('hud-buttons'), mini: $('mini'), kmh: $('kmh'), fuelBar: $('fuelBar'), fuelL: $('fuelL'), touch: $('touch'), keys: $('keys') };
 
   /* ---------------- renderer / scene ---------------- */
-  const renderer = W.renderer = new T.WebGLRenderer({ canvas: dom.canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  // Fill rate is the main GPU cost of this scene (full-screen lit terrain), so: pixel ratio capped at 1.5,
+  // MSAA only on 1x displays with a few cores to spare, PCF (9 taps) rather than PCFSoft (16).
+  const DPR = devicePixelRatio || 1, COARSE = matchMedia('(pointer: coarse)').matches;
+  const renderer = W.renderer = new T.WebGLRenderer({ canvas: dom.canvas, antialias: DPR < 2 && (navigator.hardwareConcurrency || 8) > 4, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(DPR, 1.5));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = T.PCFSoftShadowMap;
+  renderer.shadowMap.type = T.PCFShadowMap;
+  renderer.info.autoReset = false; // reset at the top of frame() so calls/triangles include the shadow pass
   const scene = W.scene = new T.Scene();
   const camera = W.camera = new T.PerspectiveCamera(38, 1, 0.5, 900);
   const CAM_OFF = new T.Vector3(16, 26, 22);
@@ -46,7 +50,7 @@
 
   const hemi = W.hemi = new T.HemisphereLight('#eef3f8', DAY.ambientGround, DAY.hemi);
   const sun = W.sun = new T.DirectionalLight('#fff3dc', DAY.sun);
-  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+  sun.castShadow = true; sun.shadow.mapSize.setScalar(COARSE || DPR >= 2 ? 1024 : 1536);
   const sc = sun.shadow.camera; sc.left = -48; sc.right = 48; sc.top = 48; sc.bottom = -48; sc.near = 1; sc.far = 160;
   sun.shadow.bias = -0.0008;
   scene.add(hemi, sun, sun.target);
@@ -230,9 +234,9 @@
 
   /* ---------------- effects ---------------- */
   const dustG = new T.SphereGeometry(.35, 6, 4), dust = [];
-  for (let i = 0; i < 80; i++) { const m = new T.Mesh(dustG, new T.MeshBasicMaterial({ color: '#e6dcc0', transparent: true, opacity: 0, depthWrite: false })); scene.add(m); dust.push({ m, life: 0, s: 1, vy: 1 }); }
+  for (let i = 0; i < 80; i++) { const m = new T.Mesh(dustG, new T.MeshBasicMaterial({ color: '#e6dcc0', transparent: true, opacity: 0, depthWrite: false })); m.visible = false; scene.add(m); dust.push({ m, life: 0, s: 1, vy: 1 }); }
   let dustI = 0;
-  W.puff = (x, z, s = 1, color = null) => { const d = dust[dustI++ % dust.length]; d.m.position.set(x, W.groundY(x, z) + .3, z); d.life = 1; d.s = s; d.vy = .8 + W.rng(); d.m.material.color.set(color || '#e6dcc0'); };
+  W.puff = (x, z, s = 1, color = null) => { const d = dust[dustI++ % dust.length]; d.m.position.set(x, W.groundY(x, z) + .3, z); d.life = 1; d.s = s; d.vy = .8 + W.rng(); d.m.material.color.set(color || '#e6dcc0'); d.m.visible = true; };
 
   // Guide arrow above the truck pointing at a target (missions use this).
   const arrow = new T.Mesh(new T.ConeGeometry(.6, 1.6, 4), new T.MeshBasicMaterial({ color: '#1f4fd1' })); arrow.rotation.x = Math.PI / 2; arrow.visible = false; scene.add(arrow);
@@ -246,7 +250,7 @@
     scene.background.set(P.sky); scene.fog.color.set(P.fog); skyMat.uniforms.top.value.set(P.sky); skyMat.uniforms.bottom.value.set(P.horizon);
     hemi.intensity = P.hemi; hemi.groundColor.set(P.ambientGround); sun.intensity = P.sun; sun.color.copy(on ? moonTint : new T.Color('#fff3dc'));
     for (const m of W.nightGlow) m.emissiveIntensity = on ? 1 : 0;
-    for (const s of W.spots) s.intensity = on ? 2.2 : 0;
+    for (const s of W.spots) { s.intensity = on ? 2.2 : 0; s.visible = !!on; }
     W.headlights.forEach(l => l.material.color.set(on ? '#fffbe6' : '#fff6c8'));
     clouds.forEach(c => c.children.forEach(m => m.material.opacity = on ? .25 : .85));
     for (const f of nightFns) { try { f(W.night); } catch (e) { console.error(e); } }
@@ -338,8 +342,8 @@
 
     // static and dynamic solids
     for (const s of W.solids) {
-      const dx = car.x - s.x, dz = car.z - s.z, d = Math.hypot(dx, dz), min = s.r + 1.6;
-      if (d < min && d > 0 && (s.yMax == null || car.y < s.yMax)) { const impact = Math.abs(car.v); car.x = s.x + dx / d * min; car.z = s.z + dz / d * min; if (impact > 6 && now - lastBonk > 600) { lastBonk = now; W.sfx('bonk', { v: impact }); W.toast('Bonk.'); } car.v *= -.25; if (s.onHit) s.onHit(impact); }
+      const dx = car.x - s.x, dz = car.z - s.z, min = s.r + 1.6, d2 = dx * dx + dz * dz;
+      if (d2 < min * min && d2 > 0 && (s.yMax == null || car.y < s.yMax)) { const d = Math.sqrt(d2); const impact = Math.abs(car.v); car.x = s.x + dx / d * min; car.z = s.z + dz / d * min; if (impact > 6 && now - lastBonk > 600) { lastBonk = now; W.sfx('bonk', { v: impact }); W.toast('Bonk.'); } car.v *= -.25; if (s.onHit) s.onHit(impact); }
     }
 
     // pushables
@@ -355,8 +359,8 @@
         b.v.y -= 30 * dt; p.addScaledVector(b.v, dt);
         b.mesh.rotation.x += b.w.x * dt; b.mesh.rotation.y += b.w.y * dt; b.mesh.rotation.z += b.w.z * dt;
         const gy = W.groundY(p.x, p.z) + b.half;
-        if (p.y < gy) { p.y = gy; b.v.y *= -.3; b.v.x *= .82; b.v.z *= .82; b.w.multiplyScalar(.8); if (b.v.lengthSq() < .05) { b.rest = true; b.v.set(0, 0, 0); } }
-        for (const s of W.solids) { const ex = p.x - s.x, ez = p.z - s.z, e = Math.hypot(ex, ez); if (e < s.r + b.r && e > 0) { p.x = s.x + ex / e * (s.r + b.r); p.z = s.z + ez / e * (s.r + b.r); b.v.x *= -.4; b.v.z *= -.4; } }
+        if (p.y < gy) { p.y = gy; b.v.y *= -.3; if (b.v.y < 30 * dt) b.v.y = 0; /* a bounce gravity would undo this frame is rest, at any frame rate */ b.v.x *= .82; b.v.z *= .82; b.w.multiplyScalar(.8); if (b.v.lengthSq() < .05) { b.rest = true; b.v.set(0, 0, 0); b.w.set(0, 0, 0); } }
+        for (const s of W.solids) { const ex = p.x - s.x, ez = p.z - s.z, m = s.r + b.r, e2 = ex * ex + ez * ez; if (e2 < m * m && e2 > 0) { const e = Math.sqrt(e2); p.x = s.x + ex / e * m; p.z = s.z + ez / e * m; b.v.x *= -.4; b.v.z *= -.4; } }
         const pr = Math.hypot(p.x, p.z); if (pr > R + 4) { p.x *= (R + 4) / pr; p.z *= (R + 4) / pr; b.v.x *= -.4; b.v.z *= -.4; }
       }
     }
@@ -391,7 +395,7 @@
     const braking = keys.brake || (keys.back && car.v > 0);
     W.brakeLights.forEach(l => l.material.color.set(braking ? '#ff3b2f' : W.night ? '#c0251c' : '#7a1d17'));
     if (!car.airborne && Math.abs(car.v) > 8 && W.rng() < Math.abs(car.v) / (car.onRoad ? 120 : 40)) { tmp.set(-fx * 2.2 + (W.rng() - .5) * 1.6, 0, -fz * 2.2); W.puff(car.x + tmp.x, car.z + tmp.z, 1 + W.rng(), car.onRoad ? '#cfcfcf' : null); }
-    for (const d of dust) if (d.life > 0) { d.life -= dt * 1.1; d.m.position.y += d.vy * dt; d.m.scale.setScalar(d.s * (1.8 - d.life)); d.m.material.opacity = Math.max(0, d.life * .5); }
+    for (const d of dust) if (d.life > 0) { d.life -= dt * 1.1; d.m.position.y += d.vy * dt; d.m.scale.setScalar(d.s * (1.8 - d.life)); d.m.material.opacity = Math.max(0, d.life * .5); if (d.life <= 0) d.m.visible = false; }
     // skid sound when steering hard at speed
     const skidding = !car.airborne && Math.abs(car.steer) > .35 && Math.abs(car.v) > 14;
     skidT = skidding ? skidT + dt : 0; if (skidT > .25) { W.sfx('skid'); skidT = -1.5; }
@@ -412,10 +416,11 @@
     W.audio.engine(Math.abs(car.v) / 30, keys.fwd || keys.back ? 1 : 0, car.airborne);
     for (const f of updateFns) { try { f(dt, now); } catch (e) { if (!f._err) { f._err = true; console.error(e); } } }
 
-    dom.kmh.textContent = Math.round(car.kmh);
-    dom.fuelBar.style.width = (car.fuel / car.maxFuel * 100) + '%'; dom.fuelBar.style.background = car.fuel < 60 ? '#d2473b' : '#f7bd0c';
-    dom.fuelL.textContent = Math.round(car.fuel) + ' L';
+    const kmh = Math.round(car.kmh), fuel = Math.round(car.fuel);
+    if (kmh !== shown.kmh) { shown.kmh = kmh; dom.kmh.textContent = kmh; }
+    if (fuel !== shown.fuel) { shown.fuel = fuel; dom.fuelBar.style.width = (fuel / car.maxFuel * 100) + '%'; dom.fuelBar.style.background = fuel < 60 ? '#d2473b' : '#f7bd0c'; dom.fuelL.textContent = fuel + ' L'; }
   }
+  const shown = { kmh: -1, fuel: -1 };
 
   function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w < 600 ? 50 : 38; camera.updateProjectionMatrix(); }
   addEventListener('resize', resize);
@@ -425,6 +430,7 @@
   function frame(now) {
     const dt = Math.min(.05, (now - last) / 1000); last = now;
     frames++; fpsT += dt; if (fpsT >= 1) { W.fps = frames / fpsT; frames = 0; fpsT = 0; }
+    renderer.info.reset();
     try { step(dt, now); } catch (e) { console.error(e); }
     drawMini(); renderer.render(scene, camera); requestAnimationFrame(frame);
   }
@@ -435,7 +441,10 @@
     for (const f of readyFns) { try { f(); } catch (e) { console.error('ready hook failed', e); } }
     buildMiniBase(); resize();
     camera.position.set(car.x + CAM_OFF.x, car.y + CAM_OFF.y, car.z + CAM_OFF.z);
-    W.setNight(false);
+    // Warm both shader variants (night lights on / off) with a real render each, behind the intro overlay, so the first
+    // N press does not stall. renderer.compile() would not do: programs compiled before the first shadow pass never sample it.
+    W.setNight(true); renderer.render(scene, camera);
+    W.setNight(false); renderer.render(scene, camera);
     requestAnimationFrame(frame);
   };
   W.start = () => { if (W.started) return; W.started = true; dom.intro.hidden = true; W.audio.init(); W.audio.music(true); W.toast('Drive to a glowing ring, or open Missions'); };

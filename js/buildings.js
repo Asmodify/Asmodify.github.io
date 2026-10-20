@@ -150,12 +150,12 @@
 
   /* ---------------- sign atlas: every sign in the world shares one canvas and one draw call ---------------- */
   const atlas = (() => {
-    const c = document.createElement('canvas'); c.width = 2048; c.height = 2048; const x = c.getContext('2d');
+    const c = document.createElement('canvas'); c.width = 1024; c.height = 1024; const x = c.getContext('2d'); // 16 slots of 512x128, drawn at 1024x256 through a 0.5 scale
     const tex = new T.CanvasTexture(c); tex.anisotropy = 4; const specs = [];
     const SW = 1024, SH = 256;
     function draw(sp, i) {
-      const sx = (i % 2) * SW, sy = Math.floor(i / 2) * SH, o = sp.o;
-      x.save(); x.translate(sx, sy); x.clearRect(0, 0, SW, SH);
+      const sx = (i % 2) * SW / 2, sy = Math.floor(i / 2) * SH / 2, o = sp.o;
+      x.save(); x.translate(sx, sy); x.scale(.5, .5); x.clearRect(0, 0, SW, SH);
       x.fillStyle = o.bg || C.blue; x.fillRect(0, 0, SW, SH);
       if (o.border !== false) { x.strokeStyle = o.border || 'rgba(255,255,255,.85)'; x.lineWidth = 10; x.strokeRect(16, 16, SW - 32, SH - 32); }
       x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = o.fg || '#ffffff';
@@ -171,8 +171,8 @@
       slot(title, sub, o = {}) {
         if (specs.length >= 16) return null;
         const i = specs.length; specs.push({ title, sub, o }); draw(specs[i], i); tex.needsUpdate = true;
-        const sx = (i % 2) * SW, sy = Math.floor(i / 2) * SH;
-        return { u0: sx / 2048, u1: (sx + SW) / 2048, vTop: 1 - sy / 2048, vBot: 1 - (sy + SH) / 2048, aspect: SW / SH };
+        const sx = (i % 2) * SW / 2, sy = Math.floor(i / 2) * SH / 2;
+        return { u0: sx / 1024, u1: (sx + SW / 2) / 1024, vTop: 1 - sy / 1024, vBot: 1 - (sy + SH / 2) / 1024, aspect: SW / SH };
       }
     };
   })();
@@ -197,7 +197,7 @@
     }
   }
   const lamp = (x, z, ry, h = 6) => { const y = G(x, z); lampPosts.push({ x, y, z, ry, h }); box(LAMP, null, x + Math.sin(ry) * 1.15, y + h - .06, z + Math.cos(ry) * 1.15, .78, .16, .34, ry); };
-  const light = (x, y, z, color = '#ffd58a', dist = 30) => { if (lights.length >= 6) return null; const l = new T.PointLight(color, 0, dist, 1.2); l.position.set(x, y, z); W.scene.add(l); lights.push(l); return l; };
+  const light = (x, y, z, color = '#ffd58a', dist = 30) => { if (lights.length >= 6) return null; const l = new T.PointLight(color, 0, dist, 1.2); l.position.set(x, y, z); l.visible = false; W.scene.add(l); lights.push(l); return l; };
   // Fence along world points: instanced posts every ~2.5 m, three rails between them; o.skip(xm, zm) leaves a gap.
   function fence(B, pts, closed, o = {}) {
     const hex = o.color || C.steel, n = pts.length, segs = closed ? n : n - 1, gap = o.gap || 2.5, rails = o.rails || [.5, 1.0, 1.5];
@@ -425,7 +425,7 @@
       beam(B, C.dark, b.x - px * .9, yb + .1, b.z - pz * .9, b.x + px * .9, yb + .1, b.z + pz * .9, 1.0, 1.0, true);
       const s = F.to(6.5, 13), ys = G(s.x, s.z); cone(B, C.ore, s.x, ys - .3, s.z, 4.6, 3.8, 11); W.solid(s.x, s.z, 4.0, 'stockpile');
       const mats = ['#8c7b6a', '#6f6a66', '#a08a6a'].map(h => W.mat(h, { flat: true }));
-      for (let i = 0; i < 8; i++) { const sc = .65 + W.rng() * .45, m = new T.Mesh(new T.DodecahedronGeometry(.7, 0), mats[i % 3]); m.scale.setScalar(sc); const q = F.to(3.5 + W.rng() * 5, 2.5 + W.rng() * 5); m.position.set(q.x, 0, q.z); m.rotation.set(W.rng() * 3, W.rng() * 3, 0); W.pushable(m, .6 * sc, .75 * sc, { tag: 'ore' }); BLD.meshes.push(m); } }
+      const oreG = new T.DodecahedronGeometry(.7, 0); for (let i = 0; i < 8; i++) { const sc = .65 + W.rng() * .45, m = new T.Mesh(oreG, mats[i % 3]); m.scale.setScalar(sc); const q = F.to(3.5 + W.rng() * 5, 2.5 + W.rng() * 5); m.position.set(q.x, 0, q.z); m.rotation.set(W.rng() * 3, W.rng() * 3, 0); W.pushable(m, .6 * sc, .75 * sc, { tag: 'ore' }); BLD.meshes.push(m); } }
     // site office (an Open T blue container), workshop, floodlight mast, sign
     { const y = fG(F, -9, 9.5) + .05; fbox(B, C.blue, F, -9, 9.5, y, 2.6, 2.7, 6.2); fbox(B, C.white, F, -9, 9.5, y + 2.7, 2.8, .15, 6.4); fbox(WIN, null, F, -9, 8.17, y + 1.1, .08, 1.0, 1.4); fbox(WIN, null, F, -7.5, 8.17, y + 1.1, .08, 1.0, 1.4); fbox(B, C.dark, F, -11, 8.17, y, .1, 2.0, .9); fsolid(F, -9, 9.5, 2.8, 6.4, 'office'); }
     { const y = fG(F, -2, 14) + .05; fbox(B, C.grey, F, -2, 14, y, 4.5, 4.2, 9); fbox(B, C.roof, F, -2, 14, y + 4.2, 4.8, .3, 9.3); fbox(B, '#3a3d42', F, -2, 11.72, y, .1, 3.2, 3.4); fsolid(F, -2, 14, 4.7, 9.2, 'workshop'); }
@@ -595,7 +595,7 @@
     }
     try {
       for (const Bk of [MISC, ...FAC, SIGNS, WIN, LAMP, BEACON]) { const m = Bk.build(Bk !== SIGNS); if (m) { W.scene.add(m); BLD.meshes.push(m); } }
-      try { if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('500 46px "IBM Plex Mono"', 'Хүслэн өртөө'), document.fonts.load('800 120px Archivo', 'KHUSLEN')]).then(() => atlas.redraw()).catch(() => { }); } catch (e) { }
+      try { if (document.fonts && document.fonts.load && !(document.fonts.check('800 120px Archivo') && document.fonts.check('500 46px "IBM Plex Mono"'))) Promise.all([document.fonts.load('500 46px "IBM Plex Mono"', 'Хүслэн өртөө'), document.fonts.load('800 120px Archivo', 'KHUSLEN')]).then(() => atlas.redraw()).catch(() => { }); } catch (e) { }
     } catch (e) { console.error('buildings: finish failed', e); }
     try {
       if (lampPosts.length) {
@@ -613,7 +613,7 @@
       }
     } catch (e) { console.error('buildings: instancing failed', e); }
     BLD.lights = lights;
-    W.onNight(on => { for (const l of lights) l.intensity = on ? 1.5 : 0; });
+    W.onNight(on => { for (const l of lights) { l.intensity = on ? 1.5 : 0; l.visible = !!on; } });
     BLD.ready = true;
   });
 

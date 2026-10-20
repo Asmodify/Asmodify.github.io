@@ -245,7 +245,7 @@
         const y = ground(x, z); if (y > snow || (hasWater && y < waterLevel + minAbove)) { rj.height++; continue; }
         if (o.slopeMax && slopeAt(x, z, y) > o.slopeMax) { rj.slope++; continue; }
         if (!clearFast(x, z, o.clear)) { rj.clear++; continue; }
-        if (o.strict) { isClearCalls++; if (!W.isClear(x, z, o.clear)) { rj.isClear++; continue; } }
+        if (o.strict && hyp(x, z) < DRIVE_R) { isClearCalls++; if (!W.isClear(x, z, o.clear)) { rj.isClear++; continue; } } // exact check only where the tree becomes a solid
         if (o.ok && !o.ok(x, z, y, R)) { rj.ok++; continue; }
         const rr = o.put(x, z, y, R, placed); if (o.fine) occupy(fine, FG, x, z, o.space); else occupy(hash, HG, x, z, typeof rr === 'number' ? rr : o.space); placed++;
       }

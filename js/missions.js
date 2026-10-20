@@ -369,7 +369,8 @@
   cargoBuilders.drums = S => { S.frame(0, 0, 0, 0); for (const [x, z] of [[-.55, -.55], [.55, -.55]]) S.lathe([[0, 0, STEEL], [.42, 0, STEEL], [.42, .3, STEEL], [.42, .42, RED], [.42, .62, STEEL], [.42, .78, RED], [.42, 1.0, STEEL], [.36, 1.0, STEEL], [0, 1.0, '#6c7076']], 12, x, 0, z); S.frame(0, 0, .6, .15); S.box(.95, .95, .95, 0, .475, 0, '#b98a52'); S.box(1.0, .08, .14, 0, .5, 0, INK); };
   cargoBuilders.container = S => { S.frame(0, 0, 0, 0); S.box(2.3, 1.15, 1.2, 0, .575, 0, BLU); S.box(2.32, .08, 1.22, 0, 1.15, 0, PALE); for (const x of [-.7, 0, .7]) S.box(.16, 1.17, 1.23, x, .585, 0, YEL); S.box(.5, .3, .04, .6, .6, .62, YEL); };
   cargoBuilders.pipes = S => { S.frame(0, 0, 0, 0); for (const [x, y] of [[-.5, .3], [0, .3], [.5, .3], [-.25, .78], [.25, .78]]) S.lathe([[0, -1.6, STEEL], [.26, -1.6, STEEL], [.26, 1.6, STEEL], [0, 1.6, '#6c7076']], 10, x, y, 0, 'z'); S.box(1.7, .1, .3, 0, 1.06, -1.0, INK); S.box(1.7, .1, .3, 0, 1.06, 1.0, INK); };
-  function makeCargo(kind) { const S = new Sink(); (cargoBuilders[kind] || cargoBuilders.crates)(S); const m = S.mesh(VC, 'ms-cargo'); return m; }
+  const cargoGeo = {}; // one geometry per cargo kind, shared by every delivery (meshes are removed, geometries never leak)
+  function makeCargo(kind) { let g = cargoGeo[kind]; if (!g) { const S = new Sink(); (cargoBuilders[kind] || cargoBuilders.crates)(S); g = cargoGeo[kind] = S.geometry(); } const m = new T.Mesh(g, VC); m.castShadow = m.receiveShadow = true; m.name = 'ms-cargo'; return m; }
 
   /* ================================================================
      THE MISSIONS
