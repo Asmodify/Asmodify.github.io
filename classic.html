@@ -163,6 +163,9 @@ section { padding-top: 72px; scroll-margin-top: 64px; }
 .meter .needle { position: absolute; top: -5px; width: 4px; height: 22px; border-radius: 2px; background: var(--ink); left: 50%; transform: translateX(-50%); transition: left .45s cubic-bezier(.3, 1.4, .5, 1); }
 .verdict { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-family: var(--mono); font-size: .85rem; }
 .verdict .hits mark { background: var(--accent-soft); color: var(--ink); padding: 0 4px; border-radius: 3px; margin-right: 4px; }
+.live { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-family: var(--mono); font-size: .85rem; }
+.live button { border: 1px solid var(--ink); background: var(--ink); color: var(--surface); border-radius: 4px; padding: 5px 12px; font: inherit; cursor: pointer; }
+.live button:disabled { opacity: .55; cursor: progress; }
 
 /* Earlier work */
 .early { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; }
@@ -372,7 +375,7 @@ footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--line);
           <div class="demo senti">
             <div class="demo-head">
               <strong>Try it: score a comment</strong>
-              <span class="label">Toy lexicon · Mongolian + English</span>
+              <span class="label">Instant toy lexicon, or the real model</span>
             </div>
             <label class="label" for="sentiText">Comment</label>
             <textarea id="sentiText">Энэ апп үнэхээр гоё байна, маш хурдан!</textarea>
@@ -383,7 +386,11 @@ footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--line);
             </div>
             <div class="meter" aria-hidden="true"><div class="needle" id="needle"></div></div>
             <div class="verdict"><span id="sentiLabel">positive</span><span class="hits" id="sentiHits"></span></div>
-            <p class="label" style="margin:0">The real system uses a fine-tuned Mongolian BERT. This in-page version is a small word list for fun.</p>
+            <div class="live">
+              <button type="button" id="liveBtn">Ask the real model</button>
+              <span id="liveOut" aria-live="polite"></span>
+            </div>
+            <p class="label" style="margin:0">The meter is a small in-page word list. The button sends your text to the thesis model on Hugging Face: a fine-tuned Mongolian BERT for Cyrillic text, the full rule-based lexicon for English.</p>
           </div>
         </article>
       </div>
@@ -457,6 +464,7 @@ footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--line);
   </footer>
 </div>
 
+<script src="js/sentiment-live.js"></script>
 <script>
 (() => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -659,6 +667,23 @@ footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--line);
   ta.addEventListener('input', score);
   document.querySelectorAll('.samples button').forEach(b => b.addEventListener('click', () => { ta.value = b.textContent; score(); }));
   score();
+
+  const liveBtn = document.getElementById('liveBtn'), liveOut = document.getElementById('liveOut');
+  const MODEL_NAMES = { transformer: 'Mongolian BERT', lexicon: 'lexicon' };
+  ta.addEventListener('input', () => { liveOut.textContent = ''; });
+  liveBtn.addEventListener('click', async () => {
+    const text = ta.value.trim();
+    if (!text || !window.SentimentLive) return;
+    liveBtn.disabled = true; liveOut.style.color = css('--muted'); liveOut.textContent = 'asking the model…';
+    try {
+      const r = await SentimentLive.analyze(text, { onWaking: () => { liveOut.textContent = 'waking the model up, this can take a minute…'; } });
+      needle.style.left = (50 + r.polarity * 46) + '%';
+      liveOut.style.color = css(r.label === 'positive' ? '--good' : r.label === 'negative' ? '--bad' : '--muted');
+      liveOut.textContent = `${r.label} · ${Math.round(r.confidence * 100)}% · ${MODEL_NAMES[r.model] || r.model}`;
+    } catch (e) {
+      liveOut.textContent = 'the live model is offline right now, the meter shows the toy score';
+    } finally { liveBtn.disabled = false; }
+  });
 
   /* ---------- Route progress, reveals, counters ---------- */
   const route = document.getElementById('route'), bar = document.getElementById('routeProgress');
