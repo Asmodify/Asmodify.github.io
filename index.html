@@ -3,25 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Drive a truck across a small 3D steppe to explore Khuslen's projects: the Open T fleet platform, Fuel Tank Warner and SentimentAI.">
+<meta name="description" content="Drive a truck across a 3D Mongolian steppe to explore Khuslen's projects: the Open T fleet platform, Fuel Tank Warner and SentimentAI. Missions, a town, mountains and music.">
 <title>Khuslen · Drive</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: one full-screen steppe you drive across in an Open T truck. Stations on the ground hold the projects; HTML panels slide in when you park on one.
-   Single deliberate look (daylight steppe), so colors are set explicitly rather than themed. */
+/* One full-screen steppe you drive across in an Open T truck. Daylight look by default, night toggle in-game. */
 :root {
-  --sky: #cfe0ea;
-  --ink: #18202b;
-  --paper: #fbfcfd;
-  --muted: #5a6573;
-  --accent: #1f4fd1;   /* khökh blue */
-  --truck: #f7bd0c;    /* Open T yellow */
-  --line: #d9e0e8;
-  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
-  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --sky: #cfe0ea; --ink: #18202b; --paper: #fbfcfd; --muted: #5a6573; --accent: #1f4fd1; --truck: #f7bd0c; --line: #d9e0e8; --good: #1d8a5b; --bad: #d2473b;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif; --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   color-scheme: light;
 }
 html, body { height: 100%; }
@@ -34,12 +25,19 @@ button { font: inherit; cursor: pointer; }
 .hud { position: fixed; pointer-events: none; z-index: 2; }
 .hud > * { pointer-events: auto; }
 .top { top: calc(env(safe-area-inset-top, 0px) + 14px); left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.left { display: grid; gap: 8px; max-width: 320px; }
 .badge { background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(6px); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
 .badge h1 { font-family: var(--display); font-stretch: 118%; font-weight: 800; font-size: 1.25rem; margin: 0; line-height: 1.1; }
 .badge p { margin: 2px 0 0; font-size: .82rem; color: var(--muted); }
-.links { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.hud-item { font-size: .85rem; line-height: 1.45; }
+.hud-item b { font-family: var(--display); font-stretch: 110%; }
+.hud-item .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.hud-item .bar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 6px; }
+.hud-item .bar i { display: block; height: 100%; background: var(--accent); }
+#hud-buttons { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .chip { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 99px; padding: 7px 12px; font-size: .85rem; font-weight: 500; }
 .chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip.on { border-color: var(--accent); background: #e3eafb; color: var(--accent); }
 
 #mini { position: fixed; right: 16px; top: calc(env(safe-area-inset-top, 0px) + 64px); width: 132px; height: 132px; border-radius: 50%; border: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 85%, transparent); z-index: 2; }
 
@@ -53,7 +51,6 @@ button { font: inherit; cursor: pointer; }
 .fuel i { display: block; height: 100%; width: 100%; background: var(--truck); transition: width .2s linear, background .3s; }
 .fuel-row { display: flex; justify-content: space-between; color: var(--muted); }
 
-/* Project panel */
 #panel { position: fixed; z-index: 3; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); width: min(560px, calc(100% - 32px)); transform: translate(-50%, 130%); transition: transform .45s cubic-bezier(.2, .9, .25, 1.15); background: var(--paper); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 60px -20px rgba(16, 24, 40, .45); padding: 18px 20px; max-height: 62vh; overflow: auto; }
 #panel.open { transform: translate(-50%, 0); }
 #panel .eyebrow { font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
@@ -64,43 +61,52 @@ button { font: inherit; cursor: pointer; }
 #panel .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
 #panel .tags { font-family: var(--mono); font-size: .78rem; color: var(--muted); }
 #panel .close { position: absolute; right: 12px; top: 10px; border: 0; background: none; font-size: 1.3rem; color: var(--muted); }
+#panel .mission { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+#panel .mission:first-of-type { border-top: 0; }
+#panel .mission small { color: var(--muted); display: block; }
+#panel .best { font-family: var(--mono); font-size: .78rem; color: var(--good); }
+.btn { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; padding: 10px 16px; font-weight: 600; text-decoration: none; display: inline-block; }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.small { padding: 6px 12px; font-size: .85rem; }
 
-/* Intro */
 #intro { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; padding-inline: 16px; background: radial-gradient(ellipse at center, rgba(207, 224, 234, .55), rgba(207, 224, 234, .92)); }
-#intro .card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 28px; max-width: 460px; text-align: left; box-shadow: 0 30px 80px -30px rgba(16, 24, 40, .5); }
+#intro .card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 28px; max-width: 480px; box-shadow: 0 30px 80px -30px rgba(16, 24, 40, .5); }
 #intro h1 { font-family: var(--display); font-weight: 800; font-stretch: 122%; font-size: clamp(2.2rem, 8vw, 3.2rem); line-height: .95; margin: 0 0 10px; }
 #intro h1 span { color: var(--accent); }
 #intro p { margin: 0 0 16px; color: var(--muted); line-height: 1.55; }
 #intro .go { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.btn { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; padding: 11px 18px; font-weight: 600; }
-.btn.ghost { background: transparent; color: var(--accent); text-decoration: none; }
+#intro .note { font-size: .78rem; color: var(--muted); margin: 14px 0 0; }
 #intro[hidden] { display: none !important; }
 
-/* Touch controls */
-#touch { position: fixed; z-index: 2; bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); left: 16px; right: 16px; display: none; justify-content: space-between; pointer-events: none; }
-#touch .pad { display: flex; gap: 10px; pointer-events: auto; }
+#touch { position: fixed; z-index: 2; bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); left: 16px; right: 16px; display: none; justify-content: space-between; align-items: flex-end; pointer-events: none; }
+#touch .pad { display: flex; gap: 10px; pointer-events: auto; align-items: flex-end; }
 #touch button { width: 64px; height: 64px; border-radius: 50%; border: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 80%, transparent); font-size: 1.4rem; color: var(--ink); touch-action: none; user-select: none; -webkit-user-select: none; }
+#touch button.small { width: 48px; height: 48px; font-size: .95rem; font-family: var(--mono); }
 #touch button.on { background: var(--truck); }
 @media (hover: none) and (pointer: coarse) { #touch { display: flex; } .keys { display: none; } }
 
-#toast { position: fixed; z-index: 3; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 84px); transform: translate(-50%, -20px); opacity: 0; transition: .35s; background: var(--ink); color: #fff; border-radius: 99px; padding: 7px 14px; font-size: .85rem; pointer-events: none; white-space: nowrap; }
+#toast { position: fixed; z-index: 3; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 84px); transform: translate(-50%, -20px); opacity: 0; transition: .35s; background: var(--ink); color: #fff; border-radius: 99px; padding: 7px 14px; font-size: .85rem; pointer-events: none; white-space: nowrap; max-width: calc(100% - 32px); overflow: hidden; text-overflow: ellipsis; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 @media (max-width: 560px) {
   #mini { width: 96px; height: 96px; top: calc(env(safe-area-inset-top, 0px) + 112px); }
   .badge p { display: none; }
+  .left { max-width: 200px; }
   .speed { font-size: 1.5rem; }
   .gauges { min-width: 120px; }
+  #panel { max-height: 50vh; padding: 14px 16px; }
 }
 </style>
 </head>
 <body>
-
 <canvas id="scene" aria-label="3D steppe world. Drive the truck to project stations to read about each project."></canvas>
 
 <div class="hud top">
-  <div class="badge"><h1>Khuslen</h1><p>Developer · OpenDevelopment · Ulaanbaatar</p></div>
-  <div class="links">
+  <div class="left">
+    <div class="badge"><h1>Khuslen</h1><p>Developer · OpenDevelopment · Ulaanbaatar</p></div>
+    <div id="hud-extra"></div>
+  </div>
+  <div id="hud-buttons">
     <a class="chip" href="classic.html">Classic view</a>
     <a class="chip" href="https://github.com/Asmodify">GitHub ↗</a>
   </div>
@@ -108,9 +114,9 @@ button { font: inherit; cursor: pointer; }
 <canvas id="mini" width="264" height="264" aria-hidden="true"></canvas>
 
 <div class="hud bottom">
-  <div class="keys">
-    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows · drive<br>
-    <kbd>Shift</kbd> boost · <kbd>Space</kbd> brake · <kbd>R</kbd> reset<br>
+  <div class="keys" id="keys">
+    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows · drive · <kbd>Shift</kbd> boost · <kbd>Space</kbd> brake<br>
+    <kbd>E</kbd> action · <kbd>H</kbd> horn · <kbd>N</kbd> night · <kbd>M</kbd> mute · <kbd>C</kbd> camera · <kbd>R</kbd> reset<br>
     Park on a glowing ring to open a project
   </div>
   <div class="gauges">
@@ -122,359 +128,36 @@ button { font: inherit; cursor: pointer; }
 
 <div id="touch" aria-hidden="true">
   <div class="pad"><button data-k="left">◀</button><button data-k="right">▶</button></div>
-  <div class="pad"><button data-k="back">▼</button><button data-k="fwd">▲</button></div>
+  <div class="pad"><button data-k="horn" class="small">H</button><button data-k="action" class="small">E</button><button data-k="back">▼</button><button data-k="fwd">▲</button></div>
 </div>
 
 <div id="toast" role="status"></div>
 
-<section id="panel" aria-live="polite" aria-label="Project details"><button class="close" type="button" aria-label="Close">×</button><div id="panelBody"></div></section>
+<section id="panel" aria-live="polite" aria-label="Details"><button class="close" type="button" aria-label="Close">×</button><div id="panelBody"></div></section>
 
 <div id="intro">
   <div class="card">
     <h1>Khuslen.<br><span>Take the truck.</span></h1>
-    <p>I build fleet software at OpenDevelopment: GPS tracking, fuel monitoring and dispatch. This portfolio is a small steppe you can drive around. Each glowing ring is a project.</p>
+    <p>I build fleet software at OpenDevelopment: GPS tracking, fuel monitoring and dispatch. This portfolio is a small steppe you can drive around. Each glowing ring is a project, and the Missions board has deliveries, a rally and a tracker hunt.</p>
     <div class="go">
       <button class="btn" id="start" type="button">Start driving</button>
       <a class="btn ghost" href="classic.html">Read the classic version</a>
     </div>
+    <p class="note">Starts with music and engine sound. Press M to mute at any time.</p>
   </div>
 </div>
 
 <noscript><p style="position:fixed;inset:auto 16px 16px;z-index:9;background:#fff;padding:12px">This page needs JavaScript. <a href="classic.html">Open the classic portfolio.</a></p></noscript>
 
 <script src="vendor/three.r128.min.js"></script>
-<script>
-(async () => {
-  if (!window.THREE) { document.getElementById('intro').querySelector('p').innerHTML = 'The 3D engine could not load. <a href="classic.html">Open the classic portfolio.</a>'; return; }
-  try { await Promise.all([document.fonts.load('800 64px Archivo'), document.fonts.load('500 20px "IBM Plex Mono"')]); } catch (e) {}
-
-  const T = THREE;
-  const canvas = document.getElementById('scene');
-  let renderer;
-  try { renderer = new T.WebGLRenderer({ canvas, antialias: true }); }
-  catch (e) { document.getElementById('intro').querySelector('p').innerHTML = 'Your browser has WebGL turned off. <a href="classic.html">Open the classic portfolio.</a>'; return; }
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = T.PCFSoftShadowMap;
-
-  const scene = new T.Scene();
-  scene.background = new T.Color('#cfe0ea');
-  scene.fog = new T.Fog('#cfe0ea', 70, 150);
-  const camera = new T.PerspectiveCamera(38, 1, 0.5, 400);
-  const CAM_OFF = new T.Vector3(16, 26, 22);
-
-  // Light
-  scene.add(new T.HemisphereLight('#eef3f8', '#8f9a68', 0.5));
-  const sun = new T.DirectionalLight('#fff3dc', 0.62);
-  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-  const sc = sun.shadow.camera; sc.left = -40; sc.right = 40; sc.top = 40; sc.bottom = -40; sc.near = 1; sc.far = 120;
-  sun.shadow.bias = -0.0008;
-  scene.add(sun, sun.target);
-
-  const mat = c => new T.MeshStandardMaterial({ color: c, roughness: .85, metalness: 0 });
-  const M = { ground: mat('#a9b878'), grass: mat('#8fa060'), road: mat('#d9cfae'), truck: mat('#f7bd0c'), cab: mat('#f6f7f9'), dark: mat('#1c1b19'), glass: mat('#2a3e66'), grey: mat('#8a8a8a'), blue: mat('#1f4fd1'), white: mat('#fbfbf7'), rock: mat('#9aa1a6'), red: mat('#d2473b'), crate: mat('#b98a52'), cone: mat('#f07a2a') };
-  const shadowed = o => { o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); return o; };
-
-  // Ground
-  const ground = new T.Mesh(new T.PlaneGeometry(300, 300), M.ground);
-  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-  // Grass tufts and dirt patches for texture
-  const tuft = new T.ConeGeometry(.25, .7, 4);
-  for (let i = 0; i < 420; i++) {
-    const m = new T.Mesh(tuft, M.grass); const a = Math.random() * 6.28, r = 6 + Math.random() * 70;
-    m.position.set(Math.cos(a) * r, .3, Math.sin(a) * r); m.rotation.y = Math.random() * 3; m.receiveShadow = true; scene.add(m);
-  }
-  const ring = (r, w, color, op = 1) => { const m = new T.Mesh(new T.RingGeometry(r - w, r, 64), new T.MeshBasicMaterial({ color, transparent: op < 1, opacity: op })); m.rotation.x = -Math.PI / 2; m.position.y = .02; return m; };
-
-  // Canvas text textures
-  function textTex(lines, { w = 1024, h = 256, bg = null, color = '#18202b', font = '800 120px Archivo', sub = '500 40px "IBM Plex Mono"', subColor = '#5a6573', align = 'center' } = {}) {
-    const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
-    if (bg) { x.fillStyle = bg; x.fillRect(0, 0, w, h); }
-    x.textAlign = align; x.textBaseline = 'middle';
-    const X = align === 'center' ? w / 2 : 40;
-    x.fillStyle = color; x.font = font; x.fillText(lines[0], X, lines[1] ? h * .4 : h / 2);
-    if (lines[1]) { x.fillStyle = subColor; x.font = sub; x.fillText(lines[1], X, h * .78); }
-    const t = new T.CanvasTexture(c); t.anisotropy = 4; return t;
-  }
-  const decal = (tex, w, h) => { const m = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.y = .03; return m; };
-
-  /* ---------------- Static obstacles (circles) ---------------- */
-  const solids = []; // {x,z,r}
-  const solid = (x, z, r) => solids.push({ x, z, r });
-
-  function ger(x, z, s = 1, rot = 0) {
-    const g = new T.Group();
-    const wall = new T.Mesh(new T.CylinderGeometry(2.4 * s, 2.4 * s, 1.8 * s, 20), M.white); wall.position.y = .9 * s;
-    const trim = new T.Mesh(new T.CylinderGeometry(2.42 * s, 2.42 * s, .25 * s, 20), M.blue); trim.position.y = 1.55 * s;
-    const roof = new T.Mesh(new T.ConeGeometry(2.7 * s, 1.3 * s, 20), M.white); roof.position.y = 2.45 * s;
-    const crown = new T.Mesh(new T.CylinderGeometry(.35 * s, .35 * s, .2 * s, 12), M.red); crown.position.y = 3.1 * s;
-    const door = new T.Mesh(new T.BoxGeometry(.9 * s, 1.3 * s, .2 * s), M.red); door.position.set(0, .65 * s, 2.38 * s);
-    g.add(wall, trim, roof, crown, door); g.position.set(x, 0, z); g.rotation.y = rot; scene.add(shadowed(g)); solid(x, z, 2.5 * s);
-  }
-  function rock(x, z, s) { const m = new T.Mesh(new T.DodecahedronGeometry(s, 0), M.rock); m.position.set(x, s * .5, z); m.rotation.set(Math.random(), Math.random(), Math.random()); scene.add(shadowed(m)); solid(x, z, s * .9); }
-  function hill(x, z, r, h) { const m = new T.Mesh(new T.SphereGeometry(r, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.grass); m.scale.y = h / r; m.position.set(x, 0, z); m.receiveShadow = true; scene.add(m); solid(x, z, r * .92); }
-
-  /* ---------------- Dynamic pushables ---------------- */
-  const bodies = []; // {mesh, v:Vector3, w:Vector3, half, r, home}
-  function pushable(mesh, half, r) { mesh.castShadow = mesh.receiveShadow = true; scene.add(mesh); const b = { mesh, v: new T.Vector3(), w: new T.Vector3(), half, r, rest: true }; bodies.push(b); return b; }
-  const boxG = new T.BoxGeometry(1, 1, 1);
-  function crate(x, z, s = 1.1) { const m = new T.Mesh(boxG, M.crate); m.scale.setScalar(s); m.position.set(x, s / 2, z); m.rotation.y = Math.random(); pushable(m, s / 2, s * .7); }
-  const coneG = new T.ConeGeometry(.4, 1.1, 12);
-  function cone(x, z) { const m = new T.Mesh(coneG, M.cone); m.position.set(x, .55, z); pushable(m, .55, .5); }
-
-  // Name in blocks, sampled from canvas text (knock them over)
-  (() => {
-    const c = document.createElement('canvas'); c.width = 260; c.height = 44; const x = c.getContext('2d');
-    x.font = '800 40px Archivo'; x.textBaseline = 'middle'; x.textAlign = 'center'; x.fillText('KHUSLEN', 130, 23);
-    const d = x.getImageData(0, 0, 260, 44).data, step = 4, S = .78, cols = [];
-    const letterMat = mat('#1c1b19'), letterMat2 = mat('#1f4fd1');
-    for (let py = 0; py < 44; py += step) for (let px = 0; px < 260; px += step) if (d[(py * 260 + px) * 4 + 3] > 140) cols.push([px, py]);
-    for (const [px, py] of cols) {
-      const m = new T.Mesh(boxG, px > 150 ? letterMat2 : letterMat); m.scale.set(S, S * 1.1, S);
-      m.position.set((px - 130) / step * S * 1.02, S * .55, -16 + (py - 22) / step * S * 1.02);
-      pushable(m, S * .55, S * .62);
-    }
-  })();
-  const nameSub = decal(textTex(['', 'software developer · fleet systems · python first'], { w: 1400, h: 120, sub: '500 46px "IBM Plex Mono"' }), 30, 2.6);
-  nameSub.position.set(0, .03, -10.6); scene.add(nameSub);
-
-  /* ---------------- Stations ---------------- */
-  const stations = [
-    { id: 'opent', x: -28, z: -2, color: '#f7bd0c', title: 'Open T', sub: 'fleet platform',
-      html: `<div class="eyebrow">In production · 2026 · OpenDevelopment</div><h2>Open T fleet platform</h2>
-      <p>Internal transport management for a trucking company: vehicles, drivers, dispatch, fuel, inspections, maintenance and reporting, as one API with two clients.</p>
-      <ul><li><b>API:</b> Node and Express on MongoDB, 24 route groups, Socket.IO live tracking, scheduled reports.</li>
-      <li><b>Admin console:</b> Next.js 16 and React 19 with Leaflet maps and Recharts.</li>
-      <li><b>Driver app:</b> Flutter with Riverpod: shifts, jobs, fuel entries, documents.</li>
-      <li>Identity and vehicle registry lookups through Mongolia's DAN OAuth service.</li></ul>
-      <div class="tags">Express · Mongoose · Next.js · Flutter · 34 data models · private repos</div>
-      <div class="row"><a class="chip" href="classic.html#work">More in classic view</a></div>` },
-    { id: 'fuel', x: 26, z: -4, color: '#d2473b', title: 'Fuel Tank Warner', sub: 'refuel here',
-      html: `<div class="eyebrow">In use · Sep 2026 · sole developer</div><h2>Fuel Tank Warner</h2>
-      <p>Watches every vehicle on the company's GPS server and alerts when fuel disappears, a tracker is tampered with, or a truck idles, speeds or goes silent. Runs on one office PC with a double-click start.</p>
-      <ul><li>Probes slosh by thousands of millivolts while driving, so levels are only trusted from settled readings while stopped.</li>
-      <li>Calibration tables turn sensor millivolts into litres; every refuel and drain lands in an Excel ledger.</li>
-      <li>Live dashboard over server-sent events.</li></ul>
-      <p><b>Your tank was just refilled.</b> Try the drain-detector demo in the classic view.</p>
-      <div class="tags">Node 24 · SQLite · SSE</div>
-      <div class="row"><a class="chip" href="https://github.com/Asmodify/OpendeGPS-fuel-notify">Repo ↗</a><a class="chip" href="classic.html#work">Try the demo</a></div>` },
-    { id: 'senti', x: -22, z: 26, color: '#7a4fe0', title: 'SentimentAI', sub: 'diploma thesis',
-      html: `<div class="eyebrow">Diploma thesis · 2026 · MUST SICT</div><h2>SentimentAI</h2>
-      <p>Collects public Facebook page posts and comments, scores sentiment, finds topics, predicts engagement and writes AI reports in Mongolian.</p>
-      <ul><li>Four sentiment back ends: lexicon, transformer, fine-tuned Mongolian BERT (F1 0.94), and a LoRA-tuned LLM via Ollama.</li>
-      <li>LDA topics, trends and an engagement model in scikit-learn.</li>
-      <li>Next.js dashboard with Gemini reports and Q&amp;A; CI with pytest, ruff, eslint, tsc and vitest.</li></ul>
-      <p>The earlier prototype used Selenium, FastAPI, React and Firestore.</p>
-      <div class="tags">FastAPI · SQLAlchemy · Next.js 16 · Gemini</div>
-      <div class="row"><a class="chip" href="https://github.com/Asmodify/Diplom-Data">Prototype repo ↗</a><a class="chip" href="classic.html#work">Screenshots</a></div>` },
-    { id: 'about', x: 24, z: 28, color: '#1f4fd1', title: 'About', sub: 'and earlier work',
-      html: `<div class="eyebrow">About</div><h2>Khuslen</h2>
-      <p>Developer at OpenDevelopment and Information Systems student at the Mongolian University of Science and Technology. Most of my work sits between hardware in the field and the people who run it: GPS trackers and fuel sensors on one side, dispatchers and accountants on the other.</p>
-      <p>Python first; Node, TypeScript and Dart when the job needs them.</p>
-      <p><b>Earlier work (2024):</b> Mongol BUS terminal and <a href="https://github.com/Asmodify/REAL-AS-BUS-">REAL-AS-BUS</a>, Flutter apps from my internship practicum.</p>
-      <div class="row"><a class="chip" href="https://github.com/Asmodify">github.com/Asmodify ↗</a><a class="chip" href="classic.html">Classic view</a></div>` }
-  ];
-  for (const s of stations) {
-    s.r = 5;
-    const g = new T.Group(); g.position.set(s.x, 0, s.z); scene.add(g);
-    const pad = new T.Mesh(new T.CircleGeometry(s.r, 48), new T.MeshStandardMaterial({ color: '#e6dcc0', roughness: 1 })); pad.rotation.x = -Math.PI / 2; pad.position.y = .015; pad.receiveShadow = true; g.add(pad);
-    s.glow = ring(s.r, .45, s.color, .9); g.add(s.glow);
-    const label = decal(textTex([s.title, s.sub], { w: 1024, h: 260, font: '800 118px Archivo', sub: '500 42px "IBM Plex Mono"' }), 11, 2.8);
-    label.position.set(0, .04, s.r + 2.2); g.add(label);
-  }
-  // Station props
-  (() => { // Open T depot: containers + sign
-    const s = stations[0];
-    [[-4, -6, 0], [0, -7, .1], [4, -6, -.1]].forEach(([dx, dz, r], i) => { const m = new T.Mesh(new T.BoxGeometry(3.4, 2.6, 7.5), i === 1 ? M.blue : M.truck); m.position.set(s.x + dx, 1.3, s.z + dz); m.rotation.y = r; scene.add(shadowed(m)); solid(s.x + dx, s.z + dz - 1.5, 2.1); solid(s.x + dx, s.z + dz + 1.5, 2.1); });
-    // Open T mark: yellow block with black T
-    const mark = new T.Group();
-    const y = new T.Mesh(new T.BoxGeometry(3.5, 2.7, .4), M.truck); y.position.y = 2.6;
-    const t1 = new T.Mesh(new T.BoxGeometry(3.5, .8, .5), M.dark); t1.position.y = 4.35;
-    const t2 = new T.Mesh(new T.BoxGeometry(.9, 4.4, .5), M.dark); t2.position.set(.35, 2.2, .05);
-    const pole = new T.Mesh(new T.CylinderGeometry(.12, .12, 1.2), M.grey); pole.position.y = .6;
-    mark.add(y, t1, t2, pole); mark.position.set(s.x - 8, 0, s.z + 1); mark.rotation.y = .5; scene.add(shadowed(mark)); solid(s.x - 8, s.z + 1, 1.6);
-  })();
-  (() => { // Fuel station: canopy + pumps
-    const s = stations[1], g = new T.Group(); g.position.set(s.x + 7.5, 0, s.z - 1);
-    const roof = new T.Mesh(new T.BoxGeometry(7, .5, 5), M.red); roof.position.y = 4.2;
-    const band = new T.Mesh(new T.BoxGeometry(7.05, .18, 5.05), M.white); band.position.y = 3.95;
-    [[-2.8, -1.8], [2.8, -1.8], [-2.8, 1.8], [2.8, 1.8]].forEach(([x, z]) => { const p = new T.Mesh(new T.CylinderGeometry(.18, .18, 4.1), M.white); p.position.set(x, 2.05, z); g.add(p); });
-    [-1.2, 1.2].forEach(x => { const p = new T.Mesh(new T.BoxGeometry(.9, 1.6, .6), M.white); p.position.set(x, .8, 0); const sc = new T.Mesh(new T.BoxGeometry(.6, .4, .05), M.glass); sc.position.set(x, 1.2, .33); g.add(p, sc); });
-    g.add(roof, band); scene.add(shadowed(g)); solid(s.x + 6.3, s.z - 1, .8); solid(s.x + 8.7, s.z - 1, .8);
-  })();
-  (() => { // SentimentAI billboard with a real screenshot
-    const s = stations[2], g = new T.Group(); g.position.set(s.x - 1, 0, s.z - 8); g.rotation.y = .35;
-    const frame = new T.Mesh(new T.BoxGeometry(10.6, 7.4, .4), M.dark); frame.position.y = 5.2;
-    const legs = [-3.5, 3.5].map(x => { const l = new T.Mesh(new T.BoxGeometry(.35, 2, .35), M.dark); l.position.set(x, 1, 0); return l; });
-    const tex = new T.TextureLoader().load('img/sentiment-dashboard.webp'); tex.anisotropy = 4;
-    const screen = new T.Mesh(new T.PlaneGeometry(10, 6.8), new T.MeshBasicMaterial({ map: tex, toneMapped: false })); screen.position.set(0, 5.2, .21);
-    g.add(frame, screen, ...legs); scene.add(shadowed(g)); solid(s.x - 2.2, s.z - 8.2, 1.4); solid(s.x + .5, s.z - 7.6, 1.4); solid(s.x + 2.4, s.z - 7, 1.4); solid(s.x - 4.4, s.z - 9, 1.4);
-    // little speech bubbles = comments
-    const bubbleMat = [mat('#1d8a5b'), mat('#d2473b'), mat('#9aa1a6')];
-    for (let i = 0; i < 9; i++) { const b = new T.Mesh(new T.SphereGeometry(.5, 12, 8), bubbleMat[i % 3]); b.position.set(s.x - 7 + (i % 3) * 1.4, .5, s.z + 2 + Math.floor(i / 3) * 1.4); pushable(b, .5, .55); }
-  })();
-  // Ger camp at About + scattered gers
-  ger(stations[3].x + 8, stations[3].z - 3, 1.1, -.4); ger(stations[3].x + 3, stations[3].z - 9, .9, .3); ger(-46, -24, 1, 1); ger(44, -30, .9, 2.2); ger(-6, 46, 1, 3);
-  // Rocks, hills, crates, cones
-  [[-40, 10, 1.4], [38, 8, 1.1], [8, -34, 1.6], [-14, -36, 1], [50, 48, 2], [-52, 40, 1.8], [12, 12, 0.8]].forEach(a => rock(...a));
-  hill(-60, -48, 14, 5); hill(64, -10, 12, 4); hill(0, 70, 18, 6); hill(70, 60, 15, 6); hill(-72, 20, 13, 5);
-  [[8, 4], [9.3, 4], [8.6, 5.3], [-10, 8], [-10, 9.3], [14, -8]].forEach(([x, z]) => crate(x, z));
-  for (let i = 0; i < 7; i++) cone(-4 + i * 1.6, 10 + Math.sin(i) * .6);
-  for (let i = 0; i < 6; i++) cone(stations[1].x - 6, stations[1].z - 6 + i * 2.2);
-  // Dirt tracks between stations
-  const trackMat = new T.MeshStandardMaterial({ color: '#cbbd94', roughness: 1 });
-  for (const s of stations) {
-    const dist = Math.hypot(s.x, s.z), len = dist - s.r, a = Math.atan2(s.x, s.z);
-    const m = new T.Mesh(new T.PlaneGeometry(2.6, len), trackMat); m.rotation.x = -Math.PI / 2; m.rotation.z = a + Math.PI;
-    m.position.set(Math.sin(a) * len / 2, .01, Math.cos(a) * len / 2); m.receiveShadow = true; scene.add(m);
-  }
-
-  /* ---------------- Truck ---------------- */
-  const truck = new T.Group(); const body = new T.Group(); truck.add(body);
-  const chassis = new T.Mesh(new T.BoxGeometry(2.2, .5, 5.2), M.dark); chassis.position.y = .75;
-  const cab = new T.Mesh(new T.BoxGeometry(2.2, 1.8, 1.7), M.cab); cab.position.set(0, 1.85, 1.65);
-  const glass = new T.Mesh(new T.BoxGeometry(2.0, .75, .1), M.glass); glass.position.set(0, 2.25, 2.52);
-  const side1 = new T.Mesh(new T.BoxGeometry(.06, .6, 1.0), M.glass); side1.position.set(1.12, 2.25, 1.75);
-  const side2 = side1.clone(); side2.position.x = -1.12;
-  const cargo = new T.Mesh(new T.BoxGeometry(2.4, 2.3, 3.4), M.truck); cargo.position.set(0, 2.1, -1.0);
-  const stripe = new T.Mesh(new T.BoxGeometry(2.42, .25, 3.42), M.dark); stripe.position.set(0, 1.4, -1.0);
-  const lights = [-0.7, .7].map(x => { const l = new T.Mesh(new T.BoxGeometry(.4, .2, .08), new T.MeshBasicMaterial({ color: '#fff6c8' })); l.position.set(x, 1.15, 2.53); return l; });
-  const brakes = [-0.85, .85].map(x => { const l = new T.Mesh(new T.BoxGeometry(.35, .2, .08), new T.MeshBasicMaterial({ color: '#7a1d17' })); l.position.set(x, 1.15, -2.62); return l; });
-  body.add(chassis, cab, glass, side1, side2, cargo, stripe, ...lights, ...brakes);
-  const wheelG = new T.CylinderGeometry(.55, .55, .45, 16); wheelG.rotateZ(Math.PI / 2);
-  const wheels = [[1.15, 1.6], [-1.15, 1.6], [1.15, -1.7], [-1.15, -1.7]].map(([x, z], i) => {
-    const pivot = new T.Group(); pivot.position.set(x, .55, z);
-    const w = new T.Mesh(wheelG, M.dark); const hub = new T.Mesh(new T.CylinderGeometry(.22, .22, .47, 8).rotateZ(Math.PI / 2), M.grey);
-    w.add(hub); pivot.add(w); truck.add(pivot); return { pivot, w, front: i < 2 };
-  });
-  scene.add(shadowed(truck));
-
-  /* ---------------- Dust ---------------- */
-  const dustG = new T.SphereGeometry(.35, 6, 4), dust = [];
-  for (let i = 0; i < 70; i++) { const m = new T.Mesh(dustG, new T.MeshBasicMaterial({ color: '#e6dcc0', transparent: true, opacity: 0, depthWrite: false })); scene.add(m); dust.push({ m, life: 0 }); }
-  let dustI = 0;
-  const puff = (x, z, s) => { const d = dust[dustI++ % dust.length]; d.m.position.set(x, .3, z); d.life = 1; d.s = s; d.vy = .8 + Math.random(); };
-
-  /* ---------------- State, input ---------------- */
-  const car = { x: 0, z: 6, h: Math.PI, v: 0, steer: 0, fuel: 400 };
-  const keys = {};
-  const keymap = { ArrowUp: 'fwd', KeyW: 'fwd', ArrowDown: 'back', KeyS: 'back', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ShiftLeft: 'boost', ShiftRight: 'boost', Space: 'brake' };
-  addEventListener('keydown', e => { const k = keymap[e.code]; if (k) { keys[k] = true; if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault(); } if (e.code === 'KeyR') reset(); if (e.code === 'Escape') closePanel(); });
-  addEventListener('keyup', e => { const k = keymap[e.code]; if (k) keys[k] = false; });
-  addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-  document.querySelectorAll('#touch button').forEach(b => {
-    const k = b.dataset.k, on = e => { e.preventDefault(); keys[k] = true; b.classList.add('on'); }, off = e => { e.preventDefault(); keys[k] = false; b.classList.remove('on'); };
-    b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
-  });
-  function reset() { Object.assign(car, { x: 0, z: 6, h: Math.PI, v: 0 }); toast('Back at the start'); }
-
-  const toastEl = document.getElementById('toast'); let toastT;
-  function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('show'), 2200); }
-
-  const panel = document.getElementById('panel'), panelBody = document.getElementById('panelBody');
-  let current = null, dismissed = null;
-  function openPanel(s) { if (current === s) return; current = s; panelBody.innerHTML = s.html; panel.classList.add('open'); }
-  function closePanel() { if (current) dismissed = current; current = null; panel.classList.remove('open'); }
-  panel.querySelector('.close').addEventListener('click', closePanel);
-
-  let started = false;
-  document.getElementById('start').addEventListener('click', () => { document.getElementById('intro').hidden = true; started = true; canvas.focus?.(); toast('Drive to a glowing ring'); });
-
-  /* ---------------- Minimap ---------------- */
-  const mini = document.getElementById('mini'), mx = mini.getContext('2d');
-  function drawMini() {
-    const R = 132, S = R / 75; mx.clearRect(0, 0, 264, 264);
-    mx.save(); mx.beginPath(); mx.arc(R, R, R - 2, 0, 7); mx.clip();
-    mx.fillStyle = 'rgba(201,212,156,.55)'; mx.fillRect(0, 0, 264, 264);
-    for (const s of stations) { mx.fillStyle = s.color; mx.beginPath(); mx.arc(R + s.x * S, R + s.z * S, 9, 0, 7); mx.fill(); }
-    mx.translate(R + car.x * S, R + car.z * S); mx.rotate(-car.h); mx.fillStyle = '#18202b';
-    mx.beginPath(); mx.moveTo(0, 12); mx.lineTo(-7, -8); mx.lineTo(7, -8); mx.closePath(); mx.fill(); mx.restore();
-  }
-
-  /* ---------------- Loop ---------------- */
-  const kmh = document.getElementById('kmh'), fuelBar = document.getElementById('fuelBar'), fuelL = document.getElementById('fuelL');
-  let last = performance.now(), lowWarned = false;
-  const tmp = new T.Vector3();
-  function step(dt) {
-    const drive = started ? 1 : 0;
-    const empty = car.fuel <= 0;
-    const maxV = (keys.boost ? 30 : 20) * (empty ? .35 : 1);
-    const acc = keys.fwd ? 26 : keys.back ? -22 : 0;
-    car.v += acc * dt * drive;
-    if (keys.brake) car.v *= Math.pow(.02, dt);
-    car.v *= Math.pow(acc ? .7 : .35, dt);
-    car.v = Math.max(-9, Math.min(maxV, car.v));
-    const steerTarget = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
-    car.steer += (steerTarget * .55 - car.steer) * Math.min(1, dt * 8);
-    car.h += car.steer * car.v * dt * .18;
-    const fx = Math.sin(car.h), fz = Math.cos(car.h);
-    car.x += fx * car.v * dt; car.z += fz * car.v * dt;
-    car.fuel = Math.max(0, car.fuel - Math.abs(car.v) * dt * (keys.boost ? .9 : .45));
-    if (car.fuel < 60 && !lowWarned) { lowWarned = true; toast('Fuel low: refuel at Fuel Tank Warner'); }
-
-    // World edge
-    const dist = Math.hypot(car.x, car.z); if (dist > 78) { car.x *= 78 / dist; car.z *= 78 / dist; car.v *= .5; }
-    // Static solids
-    for (const s of solids) { const dx = car.x - s.x, dz = car.z - s.z, d = Math.hypot(dx, dz), min = s.r + 1.6; if (d < min && d > 0) { car.x = s.x + dx / d * min; car.z = s.z + dz / d * min; if (Math.abs(car.v) > 6) toast('Bonk.'); car.v *= -.25; } }
-
-    // Pushables
-    for (const b of bodies) {
-      const p = b.mesh.position, dx = p.x - car.x, dz = p.z - car.z, d = Math.hypot(dx, dz);
-      if (d < b.r + 1.7 && p.y < 3 && Math.abs(car.v) > .5) {
-        const nx = dx / (d || 1), nz = dz / (d || 1), sp = Math.abs(car.v);
-        b.v.set(nx * sp * .6 + fx * car.v * .5, Math.min(9, sp * .32), nz * sp * .6 + fz * car.v * .5);
-        b.w.set((Math.random() - .5) * sp, (Math.random() - .5) * sp, (Math.random() - .5) * sp);
-        b.rest = false; car.v *= .97;
-      }
-      if (!b.rest) {
-        b.v.y -= 30 * dt; p.addScaledVector(b.v, dt);
-        b.mesh.rotation.x += b.w.x * dt; b.mesh.rotation.y += b.w.y * dt; b.mesh.rotation.z += b.w.z * dt;
-        if (p.y < b.half) { p.y = b.half; b.v.y *= -.3; b.v.x *= .82; b.v.z *= .82; b.w.multiplyScalar(.8); if (b.v.lengthSq() < .05) { b.rest = true; b.v.set(0, 0, 0); } }
-        for (const s of solids) { const ex = p.x - s.x, ez = p.z - s.z, e = Math.hypot(ex, ez); if (e < s.r + b.r) { p.x = s.x + ex / e * (s.r + b.r); p.z = s.z + ez / e * (s.r + b.r); b.v.x *= -.4; b.v.z *= -.4; } }
-      }
-    }
-
-    // Stations
-    let inside = null;
-    for (const s of stations) {
-      const d = Math.hypot(car.x - s.x, car.z - s.z);
-      s.glow.material.opacity = .55 + .35 * Math.sin(performance.now() / 300 + s.x);
-      if (d < s.r) inside = s;
-    }
-    if (inside) {
-      if (inside !== dismissed && Math.abs(car.v) < 9) openPanel(inside);
-      if (inside.id === 'fuel' && car.fuel < 399) { car.fuel = Math.min(400, car.fuel + 160 * dt); lowWarned = false; }
-    } else { dismissed = null; if (current) closePanel(), dismissed = null; }
-
-    // Truck transform + juice
-    truck.position.set(car.x, 0, car.z); truck.rotation.y = car.h;
-    body.rotation.z += (-car.steer * car.v * .012 - body.rotation.z) * Math.min(1, dt * 6);
-    body.rotation.x += (-acc * .0016 * drive - body.rotation.x) * Math.min(1, dt * 5);
-    body.position.y = Math.abs(Math.sin(performance.now() / 70)) * Math.min(.04, Math.abs(car.v) * .003);
-    for (const w of wheels) { w.w.rotation.x += car.v * dt / .55; if (w.front) w.pivot.rotation.y = car.steer * .9; }
-    brakes.forEach(l => l.material.color.set(keys.brake || (keys.back && car.v > 0) ? '#ff3b2f' : '#7a1d17'));
-    if (Math.abs(car.v) > 8 && Math.random() < Math.abs(car.v) / 40) { tmp.set(-fx * 2.2 + (Math.random() - .5) * 1.6, 0, -fz * 2.2); puff(car.x + tmp.x, car.z + tmp.z, 1 + Math.random()); }
-    for (const d of dust) if (d.life > 0) { d.life -= dt * 1.1; d.m.position.y += d.vy * dt; d.m.scale.setScalar(d.s * (1.8 - d.life)); d.m.material.opacity = Math.max(0, d.life * .5); }
-
-    // Camera + sun follow
-    tmp.set(car.x + CAM_OFF.x, CAM_OFF.y, car.z + CAM_OFF.z);
-    camera.position.lerp(tmp, Math.min(1, dt * 3)); camera.lookAt(camera.position.x - CAM_OFF.x, 0, camera.position.z - CAM_OFF.z);
-    sun.position.set(camera.position.x - CAM_OFF.x + 20, 40, camera.position.z - CAM_OFF.z + 12); sun.target.position.set(sun.position.x - 20, 0, sun.position.z - 12);
-
-    kmh.textContent = Math.round(Math.abs(car.v) * 4);
-    fuelBar.style.width = (car.fuel / 4) + '%'; fuelBar.style.background = car.fuel < 60 ? '#d2473b' : '#f7bd0c';
-    fuelL.textContent = Math.round(car.fuel) + ' L';
-  }
-  function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w < 600 ? 50 : 38; camera.updateProjectionMatrix(); }
-  addEventListener('resize', resize); resize();
-  camera.position.set(car.x + CAM_OFF.x, CAM_OFF.y, car.z + CAM_OFF.z);
-  function frame(now) {
-    const dt = Math.min(.05, (now - last) / 1000); last = now;
-    step(dt); drawMini(); renderer.render(scene, camera); requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-  window.__world = { car, keys, stations }; // handy for debugging in the console
-})();
-</script>
+<script src="js/core.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/terrain.js"></script>
+<script src="js/roads.js"></script>
+<script src="js/buildings.js"></script>
+<script src="js/foliage.js"></script>
+<script src="js/stations.js"></script>
+<script src="js/missions.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>
