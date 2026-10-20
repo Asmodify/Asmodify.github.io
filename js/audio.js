@@ -44,7 +44,8 @@
     const now = () => ctx.currentTime;
 
     // master → gentle compressor → speakers; three buses so levels stay predictable
-    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.knee.value = 18; comp.ratio.value = 3.5; comp.attack.value = .004; comp.release.value = .2; comp.connect(ctx.destination);
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.knee.value = 18; comp.ratio.value = 3.5; comp.attack.value = .004; comp.release.value = .2;
+    const trim = ctx.createGain(); trim.gain.value = .8; comp.connect(trim); trim.connect(ctx.destination); // 2 dB of headroom: a crash on top of engine and music must not clip
     const master = ctx.createGain(); master.gain.value = 1; master.connect(comp);
     const gn = (v, dest) => { const g = ctx.createGain(); g.gain.value = v; if (dest) g.connect(dest); return g; };
     const filt = (type, f, q, dest) => { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; if (q != null) b.Q.value = q; if (dest) b.connect(dest); return b; };
@@ -85,18 +86,18 @@
         tone(v, 'sine', 880, t + .08, .01, 0, .32, .9); tone(v, 'sine', 1760, t + .08, .01, 0, .18, .25); done(v);
       },
       bonk(o, t) { // the truck meets a wall: body thud, dust, a bit of sheet metal
-        const a = clamp((+o.v || 10) / 22, .3, 1), v = voice(t, { gain: .95 * a }); if (!v) return;
+        const a = clamp((+o.v || 10) / 22, .3, 1), v = voice(t, { gain: .75 * a }); if (!v) return;
         const g = gn(0, v.g), tri = osc(v, 'triangle', 140, t, t + .23, g); sweep(tri.frequency, t, 140, t + .2, 42); env(g.gain, t, .004, 1, 0, .2);
         const lp = filt('lowpass', 750, .8, v.g), ng = gn(0, lp); noise(v, t, t + .13, ng); env(ng.gain, t, .002, .7, 0, .11);
         tone(v, 'triangle', 430, t, .002, 0, .09, .25); done(v);
       },
       hit(o, t) { // knocking a crate, cone or letter over: a wooden knock
-        const a = clamp((+o.v || 8) / 20, .25, 1), v = voice(t, { gain: .75 * a }); if (!v) return;
+        const a = clamp((+o.v || 8) / 20, .25, 1), v = voice(t, { gain: .6 * a }); if (!v) return;
         const g = gn(0, v.g), s = osc(v, 'sine', 260, t, t + .11, g); sweep(s.frequency, t, 260, t + .09, 95); env(g.gain, t, .003, 1, 0, .09);
         const bp = filt('bandpass', 1600, 1.4, v.g), ng = gn(0, bp); noise(v, t, t + .07, ng); env(ng.gain, t, .001, .7, 0, .05); done(v);
       },
       land(o, t) { // wheels back on the ground; hard landings add a suspension rattle
-        const hard = !!o.hard, v = voice(t, { gain: hard ? .85 : .32 }); if (!v) return;
+        const hard = !!o.hard, v = voice(t, { gain: hard ? .6 : .32 }); if (!v) return;
         const g = gn(0, v.g), s = osc(v, 'sine', hard ? 95 : 110, t, t + (hard ? .3 : .15), g); sweep(s.frequency, t, hard ? 95 : 110, t + (hard ? .25 : .12), hard ? 36 : 60); env(g.gain, t, .004, 1, 0, hard ? .25 : .12);
         const lp = filt('lowpass', hard ? 520 : 400, .7, v.g), ng = gn(0, lp); noise(v, t, t + .16, ng); env(ng.gain, t, .002, hard ? .8 : .4, 0, hard ? .13 : .07);
         if (hard) { const bp = filt('bandpass', 2600, 2, v.g), rg = gn(0, bp); noise(v, t + .02, t + .11, rg); env(rg.gain, t + .02, .002, .18, 0, .06); } done(v);
@@ -142,7 +143,7 @@
         tone(v, 'sine', 659, t + .6, .01, .05, .25, .5); tone(v, 'sine', 880, t + .72, .01, .1, .4, .55); done(v);
       },
       cargo(o, t) { // a crate lands on the bed, a strap clacks
-        const v = voice(t, { gain: .65 }); if (!v) return;
+        const v = voice(t, { gain: .5 }); if (!v) return;
         const g = gn(0, v.g), s = osc(v, 'sine', 170, t, t + .15, g); sweep(s.frequency, t, 170, t + .12, 105); env(g.gain, t, .004, 1, 0, .13);
         const bp = filt('bandpass', 800, 2, v.g), ng = gn(0, bp); noise(v, t, t + .1, ng); env(ng.gain, t, .002, .6, 0, .08);
         const bp2 = filt('bandpass', 2400, 3, v.g), n2 = gn(0, bp2); noise(v, t + .1, t + .15, n2); env(n2.gain, t + .1, .002, .35, 0, .04); done(v);
@@ -265,11 +266,11 @@
 
   /* ---------------- live context, lifecycle ---------------- */
   let live = null, wantMusic = false, listening = false;
-  const resume = () => { try { if (live && live.ctx.state === 'suspended') live.ctx.resume().catch(() => { }); } catch (e) { } };
+  const resume = () => { try { if (live && live.ctx.state !== 'running' && live.ctx.state !== 'closed') live.ctx.resume().catch(() => { }); } catch (e) { } }; // also covers iOS 'interrupted'
   function listen() {
     if (listening) return; listening = true;
     document.addEventListener('visibilitychange', () => { try { if (!live) return; if (document.hidden) { if (live.ctx.state === 'running') live.ctx.suspend().catch(() => { }); } else resume(); } catch (e) { } });
-    addEventListener('pointerdown', resume, { passive: true }); addEventListener('keydown', resume);
+    addEventListener('pointerdown', resume, { passive: true }); addEventListener('touchend', resume, { passive: true }); addEventListener('click', resume); addEventListener('keydown', resume);
   }
   function init() { // runs on the Start click (a user gesture); safe to call again
     try {

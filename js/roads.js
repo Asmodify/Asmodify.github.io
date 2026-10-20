@@ -321,14 +321,14 @@
     /* ---- 5. signs: boards share one texture atlas (one draw call), posts and backs are instanced ---- */
     const signs = [];
     const addSign = (x, z, face, title, sub, arrow, kind) => signs.push({ x, z, face, title, sub, arrow, kind });
-    addSign(-5.6, -49.6, { x: -.94, z: .34 }, 'Khuslen Khot', 'town · over the bridge', 'left', 'blue');
-    addSign(61.6, .8, { x: -.3, z: -.95 }, 'Mine', 'uurkhai', 'left', 'blue');
+    addSign(-5.6, -49.6, { x: -.5, z: .87 }, 'Khuslen Khot', 'town · over the bridge', 'left', 'blue');
+    addSign(61.6, .8, { x: .3, z: .95 }, 'Mine', 'uurkhai', 'left', 'blue');
     addSign(9.2, 61.4, { x: .95, z: -.3 }, 'Rail station', 'galt teregnii buudal', 'left', 'blue');
     addSign(bS.x - bP.x * 5 + bN.x * 5.4, bS.z - bP.z * 5 + bN.z * 5.4, { x: -bP.x, z: -bP.z }, 'Khuslen gol', 'river · bridge 8 t', null, 'white');
     for (const tr of TRACKS) { // wooden fingerposts just before each dirt junction, facing clockwise traffic
       const J = tr.points[0], d = unit(tr.points[1].x - J.x, tr.points[1].z - J.z), tg = tanAt(J.x, J.z);
       const right = d.x * -tg.z + d.z * tg.x > 0;
-      addSign(J.x + d.x * 5.6 - tg.x * 3.6, J.z + d.z * 5.6 - tg.z * 3.6, { x: -tg.x, z: -tg.z }, tr.title, tr.sub, right ? 'right' : 'left', 'wood');
+      addSign(J.x + d.x * 5.6 - tg.x * 3.6, J.z + d.z * 5.6 - tg.z * 3.6, unit(-tg.x * .4 + .59, -tg.z * .4 + .81), tr.title, tr.sub, right ? 'right' : 'left', 'wood');
     }
     (() => {
       const n = signs.length, colsN = 2, rowsN = Math.ceil(n / colsN);

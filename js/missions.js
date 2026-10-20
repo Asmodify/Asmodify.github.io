@@ -19,6 +19,7 @@
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const G = (x, z) => num(W.groundY(x, z));
   const car = W.car;
+  const TOUCH = (() => { try { return matchMedia('(hover: none) and (pointer: coarse)').matches; } catch (e) { return false; } })();
   const unit = (x, z) => { const l = hyp(x, z) || 1; return { x: x / l, z: z / l }; };
   const flat = (x, z, r) => { let lo = 1e9, hi = -1e9; for (const dx of [-r, 0, r]) for (const dz of [-r, 0, r]) { const y = G(x + dx, z + dz); if (y < lo) lo = y; if (y > hi) hi = y; } return hi - lo; };
   const clearOfSolids = (x, z, m) => { for (const s of W.solids) if (hyp(x - num(s.x), z - num(s.z)) < num(s.r) + m) return false; return true; };
@@ -70,7 +71,7 @@
   }
 
   /* ---------------- state shared by the missions ---------------- */
-  const SP = { ramps: [], lane: null, pins: [], trackers: [], rally: null, bay: { x: -28, z: 9 }, drops: {} }; // placements, exposed for tests
+  const SP = { ramps: [], lane: null, pins: [], trackers: [], rally: null, bay: { x: -17, z: 3 }, drops: {} }; // placements, exposed for tests (the bay sits east of the depot, clear of the station label)
   let act = null, outro = 0, lastHud = '';
   const marks = [];
   const mark = (x, z, color, big) => { const m = { x, z, color, big: !!big }; W.markers.push(m); marks.push(m); return m; };
@@ -82,7 +83,7 @@
   const pinState = { hit: false, hitT: -1, bodies: [], mesh: null, dirty: false };
   const trk = { body: null, led: null, ledMat: null, pts: [], found: [], visible: false };
   const van = { mesh: null, solid: null, path: null, d: 0, x: 0, z: 0, caught: false, active: false };
-  const air = { rampOf: () => -1 };
+  let lastEHint = 0, bayHinted = false;
   const cargoBuilders = {};
   let dropped = []; // {mesh, t}
 
@@ -97,8 +98,8 @@
   W.onReady(() => {
     W.reseed(9102026);
     try { buildBay(); } catch (e) { console.warn('missions: bay', e); }
-    try { buildLane(); } catch (e) { console.warn('missions: lane', e); }   // the lane needs the biggest flat patch, so it picks first
-    try { buildRamps(); } catch (e) { console.warn('missions: ramps', e); }
+    try { buildRamps(); } catch (e) { console.warn('missions: ramps', e); } // ramps first: each claims its landing corridor
+    try { buildLane(); } catch (e) { console.warn('missions: lane', e); }
     try { buildTrackers(); } catch (e) { console.warn('missions: trackers', e); }
     try { buildGates(); } catch (e) { console.warn('missions: gates', e); }
     try { buildVan(); } catch (e) { console.warn('missions: van', e); }
@@ -153,7 +154,7 @@
       const r = pick(cands, rampOk, 14); const f = { x: Math.sin(r.h), z: Math.cos(r.h) }, n = { x: Math.cos(r.h), z: -Math.sin(r.h) };
       let base = -1e9; for (const t of [-hw, 0, hw]) base = Math.max(base, num(W.terrain.height(r.x - f.x * L / 2 + n.x * t, r.z - f.z * L / 2 + n.z * t)));
       base += .02; r.base = base; r.f = f; r.n = n; r.lip = { x: r.x + f.x * L / 2, z: r.z + f.z * L / 2 }; r.entry = { x: r.x - f.x * L / 2, z: r.z - f.z * L / 2 }; r.approach = { x: r.x - f.x * (L / 2 + 10), z: r.z - f.z * (L / 2 + 10) };
-      SP.ramps.push(r);
+      SP.ramps.push(r); taken.push({ x: r.lip.x + f.x * 28, z: r.lip.z + f.z * 28, r: 22 }); // landing and rollout corridor
       S.frame(r.x, base, r.z, r.h);
       for (let i = 0; i < N; i++) {
         const s0 = -L / 2 + L * i / N, s1 = -L / 2 + L * (i + 1) / N, y0 = rampH(i / N), y1 = rampH((i + 1) / N);
@@ -166,6 +167,7 @@
       for (const sd of [-1, 1]) { S.box(.14, 1.3, .14, sd * (hw + .4), .65, -L / 2, PALE); S.box(.18, .45, .18, sd * (hw + .4), 1.1, -L / 2, RED); } // entrance bollards
       // drivable surface: the same profile; null outside the footprint so core launches the truck off the lip
       W.addSurface({ id: 'ramp' + idx, height(x, z) { const dx = x - r.x, dz = z - r.z, s = dx * f.x + dz * f.z; if (s < -L / 2 || s > L / 2) return null; const t = dx * n.x + dz * n.z; if (t < -hw || t > hw) return null; return base + rampH((s + L / 2) / L); } });
+      for (let s = -L / 2 + 1.5; s <= L / 2 - .4; s += 1) { const hh = rampH((s + L / 2) / L); if (hh < .5) continue; for (const sd of [-1, 1]) { const k = W.solid(r.x + f.x * s + n.x * sd * (hw + .35), r.z + f.z * s + n.z * sd * (hw + .35), .35, 'ramp'); k.yMax = base + hh - .45; } } // side kerbs
       // approach decal (ground text always reads from the fixed chase camera)
       const tex = W.textTex(['JUMP', `ramp ${idx + 1} · big air`], { w: 1024, h: 300, font: '800 150px Archivo', sub: '500 44px "IBM Plex Mono"' });
       const d = W.decal(tex, 5.6, 1.65); const ax = r.x - f.x * (L / 2 + 5.5), az = r.z - f.z * (L / 2 + 5.5); d.position.set(ax, G(ax, az) + .04, az); W.scene.add(d);
@@ -174,7 +176,7 @@
   }
 
   /* ---- Steppe bowling: a ground-hugging lane with gutters and arrows, ten lathe pins, a backstop ---- */
-  const LANE_CANDS = [[-20, -27, -PI / 2], [-22, -27, -PI / 2], [-20, -25, -PI / 2], [-24, -27, -PI / 2], [0, 42, PI / 2], [40, -52, -PI / 2]];
+  const LANE_CANDS = [[-20, -27, -PI / 2], [-22, -27, -PI / 2], [-20, -25, -PI / 2], [-24, -27, -PI / 2], [36, -54, -PI / 2], [34, -56, -PI / 2], [0, 42, PI / 2], [40, -52, -PI / 2]];
   const laneOk = (x, z, h, strict) => { const f = { x: Math.sin(h), z: Math.cos(h) }; const px = x + f.x * 7, pz = z + f.z * 7, ex = x - f.x * 13, ez = z - f.z * 13; return inside(x, z, 8) && !wet(x, z) && isClear(x, z, strict ? 6 : 4.5) && isClear(px, pz, strict ? 5 : 4) && flat(x, z, 10) < (strict ? .6 : 1) && !wet(ex, ez) && clearOfSolids(ex, ez, 2); };
   function buildLane() {
     const F = pick(LANE_CANDS, laneOk, 18); const f = { x: Math.sin(F.h), z: Math.cos(F.h) }, n = { x: Math.cos(F.h), z: -Math.sin(F.h) };
@@ -251,7 +253,7 @@
     trk.body.visible = trk.led.visible = trk.found.some((f, k) => !f) && trk.visible;
   }
 
-  /* ---- Steppe Rally: eight gates along the ring road, start and finish at the gantry ---- */
+  /* ---- Steppe Rally: seven gates along the ring road, start and finish at the gantry ---- */
   function buildGates() {
     const R = W.roads; if (!R || !R.loop || R.loop.length < 16) return;
     const L = R.loop, n = L.length, gi = R.gantry && typeof R.gantry.i === 'number' ? R.gantry.i : 0;
@@ -407,7 +409,7 @@
   });
 
   DEFS.push({
-    id: 'rally', kind: 'rally', title: 'Steppe Rally', sub: 'One lap of the ring road through eight gates, clockwise from the start gantry.',
+    id: 'rally', kind: 'rally', title: 'Steppe Rally', sub: 'One lap of the ring road: seven gates in order, clockwise from the start gantry, then back through it.',
     available: () => !!(SP.rally && SP.rally.gates.length === 7), unavailable: 'Needs the ring road: the roads module is not loaded.',
     best() { const b = store.get('best.rally', null); return b != null ? 'Best lap ' + fmt(b) : ''; },
     begin(a) { a.phase = 'tostart'; a.gate = 0; a.t = 0; const s = SP.rally.start; for (const g of SP.rally.gates) mark(g.x, g.z, BLU, false); mark(s.x, s.z, YEL, true); W.setTarget({ x: s.x, z: s.z, color: YEL }); ringAt('gate', s.x, s.z, YEL); W.toast('Cross the start line at the gantry, then take the gates in order'); },
@@ -449,7 +451,7 @@
   DEFS.push({
     id: 'air', kind: 'air', title: 'Big Air', sub: 'Three ramps on the steppe. Hit each one fast; the longest flight counts.',
     best() { const b = store.get('best.air', null); return b != null ? `Best air ${num(b).toFixed(1)} s` : ''; },
-    begin(a) { a.jumped = SP.ramps.map(() => false); a.best = 0; a.wasAir = !!car.airborne; a.pending = -1; a.t = 0; this.aim(a); W.toast('Follow the arrow to a ramp and floor it (Shift to boost)'); },
+    begin(a) { a.jumped = SP.ramps.map(() => false); a.best = 0; a.wasAir = !!car.airborne; a.pending = -1; a.t = 0; this.aim(a); W.toast(TOUCH ? 'Follow the arrow to a ramp and floor it' : 'Follow the arrow to a ramp and floor it (Shift to boost)'); },
     aim(a) { clearMarks(); let best = null, bd = 1e9; SP.ramps.forEach((r, i) => { if (a.jumped[i]) return; mark(r.x, r.z, RED, false); const d = hyp(car.x - r.approach.x, car.z - r.approach.z); if (d < bd) { bd = d; best = r; } }); if (best) { W.setTarget({ x: best.approach.x, z: best.approach.z, color: RED }); ringAt('dest', best.approach.x, best.approach.z, RED); } },
     tick(a, dt) {
       a.t += dt; const airborne = !!car.airborne;
@@ -478,7 +480,7 @@
       if (pinState.hitT > 4.5 || (pinState.hitT > 1.5 && rest)) {
         const n = pinsDown(); const prev = num(store.get('best.bowling', 0)); if (n > prev) store.set('best.bowling', n);
         pinState.hit = false; pinState.hitT = -1;
-        finish(a, n >= 10 ? { ok: true, sfx: 'success', text: 'STRIKE! All ten pins down.' } : { ok: false, sfx: n >= 7 ? 'click' : 'fail', text: `${n} of 10 pins. Reset the pins from the board and try again.` });
+        finish(a, n >= 10 ? { ok: true, sfx: 'success', text: 'STRIKE! All ten pins down.' } : { ok: false, sfx: n >= 7 ? 'click' : 'fail', text: `${n} of 10 pins. Start Steppe bowling again for a fresh rack.` });
       }
     },
     hud(a) { return a.phase === 'approach' ? { line: 'Knock down all ten pins in one run', timer: 'drive through the red ring' } : { line: `Pins down ${pinsDown()} of 10`, timer: 'rolling…', progress: pinsDown() / 10 }; },
@@ -507,9 +509,9 @@
   function start(id) {
     const def = defOf(id); if (!def) { W.toast('No such mission'); return false; }
     if (def.available && !def.available()) { W.toast(def.unavailable || 'Not available'); W.sfx('fail'); return false; }
-    if (act) { cleanup(); W.toast('Previous mission replaced'); }
+    if (act) cleanup();
     act = { def, t: 0, phase: 'run', startedAt: performance.now() }; outro = 0;
-    W.closePanel(); W.sfx('start');
+    W.dismissed = W.insideStation; W.closePanel(); W.sfx('start'); // keep the station panel shut until the truck leaves its ring
     try { def.begin(act); } catch (e) { console.warn('missions: begin failed', e); cleanup(); return false; }
     setHud(hudHtml(act));
     return true;
@@ -548,7 +550,7 @@
       const isAct = act && act.def === d && act.phase !== 'done';
       return `<div class="mission"><div><b>${esc(d.title)}</b><small>${esc(ok ? d.sub : d.unavailable)}</small>${best ? `<span class="best">${esc(best)}</span>` : ''}</div>${isAct ? '<button class="btn small ghost" data-mcancel="1">Cancel</button>' : ok ? `<button class="btn small" data-mstart="${d.id}">Start</button>` : '<button class="btn small ghost" disabled>Unavailable</button>'}</div>`;
     }).join('');
-    const activeLine = act && act.phase !== 'done' ? `<p><b>Active:</b> ${esc(act.def.title)}. Cancel it below, or press R to reset everything.</p>` : '<p>Pick a job. One at a time; the card under the name badge shows the objective and the timer.</p>';
+    const activeLine = act && act.phase !== 'done' ? `<p><b>Active:</b> ${esc(act.def.title)}. ${TOUCH ? 'Cancel it below.' : 'Cancel it below, or press R to reset everything.'}</p>` : '<p>Pick a job. One at a time; the card under the name badge shows the objective and the timer.</p>';
     return `<div class="eyebrow">Mission board · Open T depot</div><h2>Missions</h2>${activeLine}${rows}<div class="row"><button class="btn small ghost" data-mpins="1">Reset bowling pins</button><span class="tags">E at the depot opens this board</span></div>`;
   }
   function openBoard() { if (W.panelId === 'missions') { W.closePanel(); return; } W.closePanel(); W.openPanel(boardHtml(), { id: 'missions', sticky: true }); }
@@ -556,12 +558,12 @@
     const el = e.target && e.target.closest ? e.target.closest('[data-mstart],[data-mcancel],[data-mpins]') : null; if (!el) return;
     try {
       if (el.dataset.mstart) start(el.dataset.mstart);
-      else if (el.dataset.mcancel) { cancel(); W.closePanel(); }
+      else if (el.dataset.mcancel) { cancel(); W.dismissed = W.insideStation; W.closePanel(); }
       else if (el.dataset.mpins) { resetPins(); W.sfx('click'); W.toast('Pins are back up'); }
     } catch (err) { console.warn('missions: board click', err); }
   });
   W.hud.button('Missions', openBoard, { id: 'missionsBtn', title: 'Mission board (E at the Open T depot)' });
-  W.onAction(() => { const d = W.places && W.places.depot; const atDepot = d ? hyp(car.x - d.x, car.z - d.z) < num(d.r, 14) + 2 : hyp(car.x + 28, car.z + 2) < 16; if (!atDepot) return false; openBoard(); return true; });
+  W.onAction(() => { const d = W.places && W.places.depot; const atDepot = d ? hyp(car.x - d.x, car.z - d.z) < num(d.r, 14) + 2 : hyp(car.x + 28, car.z + 2) < 16; if (!atDepot) { if (performance.now() - lastEHint > 3000) { lastEHint = performance.now(); W.toast('The mission board is at the Open T depot, or use the Missions chip'); } return false; } openBoard(); return true; });
 
   /* ---- public API ---- */
   const MS = W.missions = {
@@ -580,6 +582,7 @@
       for (const k in rings) if (rings[k].visible) rings[k].material.opacity = k === 'bay' ? .45 + .25 * Math.sin(now / 300) : pulse;
       if (dropped.length) tickDropped(dt);
       syncPins();
+      if (!act && near(SP.bay, 4.5) && Math.abs(num(car.v)) < 2) { if (!bayHinted) { bayHinted = true; W.toast('Loading bay: start a delivery from the Missions board to load here'); } } else if (!near(SP.bay, 8)) bayHinted = false;
       // passive strike watcher when bowling is not the active mission
       if (pinState.hit && !(act && act.def.kind === 'bowling')) { if (pinState.hitT < 0) pinState.hitT = 0; pinState.hitT += dt; if (pinState.hitT > 4) { const n = pinsDown(); if (n >= 10) { W.toast('Strike! Start Steppe bowling from the board to record it'); W.sfx('success'); } pinState.hit = false; pinState.hitT = -1; } }
       if (act) {

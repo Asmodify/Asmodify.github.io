@@ -55,7 +55,7 @@
         <ul><li>Probes slosh by thousands of millivolts while driving, so levels are only trusted from settled readings while stopped.</li>
         <li>Calibration tables turn sensor millivolts into litres; every refuel and drain lands in an Excel ledger.</li>
         <li>Live dashboard over server-sent events.</li></ul>
-        <p><b>Your tank is being refilled.</b> Try the drain-detector demo in the classic view.</p>
+        <p><b>Parking on this ring refills the truck.</b> Try the drain-detector demo in the classic view.</p>
         <div class="tags">Node 24 · SQLite · SSE</div>
         <div class="row"><a class="chip" href="https://github.com/Asmodify/OpendeGPS-fuel-notify">Repo ↗</a><a class="chip" href="classic.html#work">Try the demo</a></div>`,
         onInside: dt => { const c = W.car; if (c.fuel < c.maxFuel - 1) { c.fuel = Math.min(c.maxFuel, c.fuel + 160 * dt); if (!fuelSfxOn) { fuelSfxOn = true; W.sfx('refuel'); } } },
@@ -90,7 +90,7 @@
     /* ---------- station props ---------- */
     (() => { // Open T depot: containers + the Open T mark
       const s = defs[0];
-      [[-4, -6, 0], [0, -7, .1], [4, -6, -.1]].forEach(([dx, dz, r], i) => { const m = W.box(3.4, 2.6, 7.5, i === 1 ? M.blue : M.truck); W.place(m, s.x + dx, s.z + dz, 1.3); m.rotation.y = r; W.scene.add(W.shadowed(m)); W.solid(s.x + dx, s.z + dz - 1.5, 2.1); W.solid(s.x + dx, s.z + dz + 1.5, 2.1); });
+      [[-4, -10, 0], [0, -11, .1], [4, -10, -.1]].forEach(([dx, dz, r], i) => { const m = W.box(3.4, 2.6, 7.5, i === 1 ? M.blue : M.truck); W.place(m, s.x + dx, s.z + dz, 1.3); m.rotation.y = r; W.scene.add(W.shadowed(m)); W.solid(s.x + dx, s.z + dz - 1.5, 2.1); W.solid(s.x + dx, s.z + dz + 1.5, 2.1); });
       const mark = new T.Group();
       mark.add(W.box(3.5, 2.7, .4, M.truck, 0, 2.6, 0), W.box(3.5, .8, .5, M.dark, 0, 4.35, 0), W.box(.9, 4.4, .5, M.dark, .35, 2.2, .05), W.cyl(.12, .12, 1.2, M.grey, 0, .6, 0));
       W.place(mark, s.x - 8, s.z + 1); mark.rotation.y = .5; W.scene.add(W.shadowed(mark)); W.solid(s.x - 8, s.z + 1, 1.6);

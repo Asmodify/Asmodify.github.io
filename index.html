@@ -42,17 +42,17 @@ button { font: inherit; cursor: pointer; }
 #mini { position: fixed; right: 16px; top: calc(env(safe-area-inset-top, 0px) + 64px); width: 132px; height: 132px; border-radius: 50%; border: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 85%, transparent); z-index: 2; }
 
 .bottom { bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
-.keys { font-family: var(--mono); font-size: .75rem; color: var(--muted); line-height: 1.7; }
+.keys { font-family: var(--mono); font-size: .75rem; color: var(--muted); line-height: 1.7; background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(6px); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
 .keys kbd { font-family: var(--mono); background: var(--paper); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--ink); }
-.gauges { display: grid; gap: 6px; min-width: 160px; font-family: var(--mono); font-size: .75rem; }
+.gauges { display: grid; gap: 6px; min-width: 160px; font-family: var(--mono); font-size: .75rem; background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(6px); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
 .speed { font-family: var(--display); font-stretch: 120%; font-weight: 800; font-size: 2rem; line-height: 1; text-align: right; font-variant-numeric: tabular-nums; }
 .speed small { font-family: var(--mono); font-size: .7rem; font-weight: 400; color: var(--muted); margin-left: 4px; }
 .fuel { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
 .fuel i { display: block; height: 100%; width: 100%; background: var(--truck); transition: width .2s linear, background .3s; }
 .fuel-row { display: flex; justify-content: space-between; color: var(--muted); }
 
-#panel { position: fixed; z-index: 3; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); width: min(560px, calc(100% - 32px)); transform: translate(-50%, 130%); transition: transform .45s cubic-bezier(.2, .9, .25, 1.15); background: var(--paper); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 60px -20px rgba(16, 24, 40, .45); padding: 18px 20px; max-height: 62vh; overflow: auto; }
-#panel.open { transform: translate(-50%, 0); }
+#panel { position: fixed; z-index: 3; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); width: min(560px, calc(100% - 32px)); transform: translate(-50%, calc(100% + 24px)); visibility: hidden; transition: transform .45s cubic-bezier(.2, .9, .25, 1.15), visibility 0s .45s; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 60px -20px rgba(16, 24, 40, .45); padding: 18px 20px; max-height: 62vh; overflow: auto; }
+#panel.open { transform: translate(-50%, 0); visibility: visible; transition-delay: 0s; }
 #panel .eyebrow { font-family: var(--mono); font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 #panel h2 { font-family: var(--display); font-stretch: 112%; font-weight: 800; font-size: 1.5rem; margin: 4px 0 6px; }
 #panel p { margin: 6px 0; line-height: 1.55; }
@@ -61,8 +61,8 @@ button { font: inherit; cursor: pointer; }
 #panel .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
 #panel .tags { font-family: var(--mono); font-size: .78rem; color: var(--muted); }
 #panel .close { position: absolute; right: 12px; top: 10px; border: 0; background: none; font-size: 1.3rem; color: var(--muted); }
-#panel .mission { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
-#panel .mission:first-of-type { border-top: 0; }
+#panel .mission { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; align-items: center; padding: 10px 0; }
+#panel .mission + .mission { border-top: 1px solid var(--line); }
 #panel .mission small { color: var(--muted); display: block; }
 #panel .best { font-family: var(--mono); font-size: .78rem; color: var(--good); }
 .btn { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; padding: 10px 16px; font-weight: 600; text-decoration: none; display: inline-block; }
@@ -83,7 +83,7 @@ button { font: inherit; cursor: pointer; }
 #touch button { width: 64px; height: 64px; border-radius: 50%; border: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 80%, transparent); font-size: 1.4rem; color: var(--ink); touch-action: none; user-select: none; -webkit-user-select: none; }
 #touch button.small { width: 48px; height: 48px; font-size: .95rem; font-family: var(--mono); }
 #touch button.on { background: var(--truck); }
-@media (hover: none) and (pointer: coarse) { #touch { display: flex; } .keys { display: none; } }
+@media (hover: none) and (pointer: coarse) { #touch { display: flex; z-index: 4; } .keys { display: none; } }
 
 #toast { position: fixed; z-index: 3; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 84px); transform: translate(-50%, -20px); opacity: 0; transition: .35s; background: var(--ink); color: #fff; border-radius: 99px; padding: 7px 14px; font-size: .85rem; pointer-events: none; white-space: nowrap; max-width: calc(100% - 32px); overflow: hidden; text-overflow: ellipsis; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -94,8 +94,15 @@ button { font: inherit; cursor: pointer; }
   .badge p { display: none; }
   .left { max-width: 200px; }
   .speed { font-size: 1.5rem; }
-  .gauges { min-width: 120px; }
-  #panel { max-height: 50vh; padding: 14px 16px; }
+  .gauges { min-width: 120px; padding: 6px 10px; }
+  #hud-extra { position: fixed; left: 16px; right: 132px; top: calc(env(safe-area-inset-top, 0px) + 132px); }
+  #touch { left: 12px; right: 12px; }
+  #touch .pad { gap: 6px; }
+  #touch button { width: 56px; height: 56px; font-size: 1.25rem; }
+  #touch button.small { width: 40px; height: 40px; }
+  #panel { bottom: calc(env(safe-area-inset-bottom, 0px) + 160px); max-height: calc(100vh - 340px); padding: 14px 16px; }
+  #toast { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 164px); white-space: normal; text-align: center; border-radius: 12px; line-height: 1.35; }
+  #toast:not(.show) { transform: translate(-50%, 20px); }
 }
 </style>
 </head>
@@ -117,7 +124,7 @@ button { font: inherit; cursor: pointer; }
 <div class="hud bottom">
   <div class="keys" id="keys">
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows · drive · <kbd>Shift</kbd> boost · <kbd>Space</kbd> brake<br>
-    <kbd>E</kbd> action · <kbd>H</kbd> horn · <kbd>N</kbd> night · <kbd>M</kbd> mute · <kbd>C</kbd> camera · <kbd>R</kbd> reset<br>
+    <kbd>E</kbd> missions (at the depot) · <kbd>H</kbd> horn · <kbd>N</kbd> night · <kbd>M</kbd> mute · <kbd>C</kbd> camera · <kbd>R</kbd> reset<br>
     Park on a glowing ring to open a project
   </div>
   <div class="gauges">
@@ -144,7 +151,7 @@ button { font: inherit; cursor: pointer; }
       <button class="btn" id="start" type="button">Start driving</button>
       <a class="btn ghost" href="classic.html">Read the classic version</a>
     </div>
-    <p class="note">Starts with music and engine sound. Press M to mute at any time.</p>
+    <p class="note">Starts with music and engine sound. Use the ♪ Sound chip (or M) to mute.</p>
   </div>
 </div>
 

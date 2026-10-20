@@ -16,12 +16,12 @@
   const LAKE = { x: -92, z: 52 };
   const PLAZA = { x: 0, z: 6, r: 24 };
   const NAME_RECT = { x0: -29, x1: 29, z0: -23, z1: -7 };            // the KHUSLEN blocks and their subtitle
-  // Footprints other modules own, as [x, z, r]. stations.js runs after foliage so its rings, props
-  // and camp are always taken from the plan; the pads are a fallback for a stubbed buildings.js.
+  // Footprints other modules own, as [x, z, r]. stations.js, buildings.js and missions.js run before
+  // foliage (their stations, places, solids and W.reserved are seen), so this list is only a fallback
+  // for when one of them is stubbed.
   const PLAN = [
     [-28, -2, 15], [26, -4, 13], [-22, 26, 11], [-23, 18, 7], [24, 28, 10], [29, 22, 10],   // depot, fuel, SentimentAI + billboard, About + ger camp
-    [28, -100, 23], [92, 42, 19], [-86, -26, 17], [62, -22, 13], [6, 98, 15],               // town, mine, power plant, bus terminal, rail station
-    [14, -30, 7], [70, -8, 7], [-60, -50, 7], [40, -52, 9]                                   // ramps and bowling pad the plan suggests to missions.js
+    [28, -100, 23], [92, 42, 19], [-86, -26, 17], [62, -22, 13], [6, 98, 15]                // town, mine, power plant, bus terminal, rail station
   ];
   const RAIL = { z: 94, x0: -118, x1: 118, hw: 6.5 };
   // Road plan, only used when roads.js is stubbed (then W.roads is undefined and isClear knows no roads).

@@ -169,12 +169,12 @@
     if (W.panelId === id && id) { if (refresh) dom.panelBody.innerHTML = html; return; }
     W.panelId = id; panelSticky = sticky; dom.panelBody.innerHTML = html; dom.panel.classList.add('open'); W.sfx('open');
   };
-  W.closePanel = () => { if (!dom.panel.classList.contains('open')) return; W.panelId = null; panelSticky = false; dom.panel.classList.remove('open'); };
+  W.closePanel = () => { if (!dom.panel.classList.contains('open')) return; if (document.activeElement && dom.panel.contains(document.activeElement)) document.activeElement.blur(); W.panelId = null; panelSticky = false; dom.panel.classList.remove('open'); };
   dom.panel.querySelector('.close').addEventListener('click', () => { W.dismissed = W.insideStation; W.closePanel(); });
   W.hud = {
     set: (id, html) => { let el = dom.hud.querySelector(`[data-id="${id}"]`); if (!el) { el = document.createElement('div'); el.dataset.id = id; el.className = 'badge hud-item'; dom.hud.appendChild(el); } el.innerHTML = html; return el; },
     remove: id => { const el = dom.hud.querySelector(`[data-id="${id}"]`); if (el) el.remove(); },
-    button: (label, onClick, { id = null, title = '' } = {}) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = label; if (id) b.id = id; if (title) b.title = title; b.addEventListener('click', onClick); dom.buttons.appendChild(b); return b; }
+    button: (label, onClick, { id = null, title = '' } = {}) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = label; if (id) b.id = id; if (title) b.title = title; b.addEventListener('click', e => { onClick(e); b.blur(); }); dom.buttons.appendChild(b); return b; }
   };
 
   /* ---------------- audio stub (audio.js replaces) ---------------- */
@@ -190,7 +190,7 @@
   addEventListener('keydown', e => {
     if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
     const k = keymap[e.code];
-    if (k) { if (!keys[k] && k === 'action') fireAction(); if (!keys[k] && k === 'horn') W.sfx('horn'); keys[k] = true; if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault(); }
+    if (k) { if (!keys[k] && k === 'action') fireAction(); if (!keys[k] && k === 'horn') W.sfx('horn'); keys[k] = true; if (e.code.startsWith('Arrow') || e.code === 'Space' || e.code === 'Enter') e.preventDefault(); }
     if (e.code === 'KeyR') W.reset();
     if (e.code === 'Escape') { W.dismissed = W.insideStation; W.closePanel(); }
     if (e.code === 'KeyN') W.setNight(!W.night);
@@ -263,7 +263,12 @@
   W.onReady = fn => readyFns.push(fn);
   W.onReset = fn => resetFns.push(fn);
   W.started = false;
-  W.reset = () => { Object.assign(car, { x: START.x, z: START.z, h: START.h, v: 0, vy: 0, airborne: false, airTime: 0 }); car.y = W.groundY(car.x, car.z); for (const f of resetFns) f(); W.toast('Back at the start'); };
+  W.reset = () => {
+    Object.assign(car, { x: START.x, z: START.z, h: START.h, v: 0, vy: 0, airborne: false, airTime: 0, steer: 0 }); car.y = W.groundY(car.x, car.z);
+    for (const b of W.bodies) W.resetBody(b); // knocked props go home before the modules' own reset hooks run
+    for (const f of resetFns) { try { f(); } catch (e) { console.error('reset hook failed', e); } }
+    W.toast('Back at the start');
+  };
 
   /* ---------------- minimap ---------------- */
   const mini = dom.mini, mx = mini.getContext('2d');
@@ -297,7 +302,7 @@
 
   /* ---------------- physics / loop ---------------- */
   const tmp = new T.Vector3(), tmp2 = new T.Vector3();
-  let lowWarned = false, lastBonk = 0, skidT = 0;
+  let lowWarned = false, emptyWarned = false, lastBonk = 0, skidT = 0;
   W.insideStation = null; W.dismissed = null;
   function step(dt, now) {
     const drive = W.started ? 1 : 0;
@@ -315,15 +320,17 @@
     car.v += acc * dt;
     if (keys.brake && !car.airborne) car.v *= Math.pow(.02, dt);
     if (!car.airborne) car.v *= Math.pow(keys.fwd || keys.back ? (car.inWater ? .3 : .7) : .35, dt);
-    car.v = W.clamp(car.v, -9, maxV);
+    car.v = W.clamp(car.v, -Math.min(9, maxV * .45), maxV); // reverse obeys the same caps (empty tank, off-road, water)
     const steerTarget = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
     car.steer += (steerTarget * .55 - car.steer) * Math.min(1, dt * 8);
     if (!car.airborne) car.h += car.steer * car.v * dt * .18; else car.h += car.steer * car.v * dt * .04;
     car.x += fx * car.v * dt; car.z += fz * car.v * dt;
     car.odometer += Math.abs(car.v) * dt;
-    car.fuel = Math.max(0, car.fuel - Math.abs(car.v) * dt * (keys.boost ? .9 : .45));
-    if (car.fuel < 60 && !lowWarned) { lowWarned = true; W.toast('Fuel low: refuel at the fuel station'); }
-    if (car.fuel > 100) lowWarned = false;
+    car.fuel = Math.max(0, car.fuel - Math.abs(car.v) * dt * (keys.boost ? .22 : .11)); // a tank is ~3.6 km, a few laps of the ring
+    if (car.fuel < car.maxFuel * .25 && !lowWarned) { lowWarned = true; W.toast('Fuel low: refuel at the fuel station (red ring)'); }
+    if (car.fuel > car.maxFuel * .4) lowWarned = false;
+    if (empty && !emptyWarned) { emptyWarned = true; W.toast('Out of fuel: limp to the fuel station (red ring on the map)'); }
+    if (car.fuel > 20) emptyWarned = false;
 
     // vertical: follow the ground, launch when it falls away, fall under gravity
     const g2 = W.groundY(car.x, car.z);
@@ -372,7 +379,12 @@
       if (s.glow) s.glow.material.opacity = .55 + .35 * Math.sin(now / 300 + s.x);
       if (d < s.r) inside = s;
     }
-    if (inside !== W.insideStation) { if (W.insideStation && W.insideStation.onLeave) W.insideStation.onLeave(); if (inside && inside.onEnter) inside.onEnter(); W.insideStation = inside; }
+    if (inside !== W.insideStation) {
+      if (W.insideStation && W.insideStation.onLeave) W.insideStation.onLeave();
+      if (inside && inside.onEnter) inside.onEnter();
+      if (inside && panelSticky && inside !== W.dismissed) W.closePanel(); // a sticky board (missions) gives way to the station the truck just rolled into
+      W.insideStation = inside;
+    }
     if (inside) {
       if (inside.html && inside !== W.dismissed && Math.abs(car.v) < 9 && !panelSticky) W.openPanel(inside.html, { id: inside.id });
       if (inside.onInside) inside.onInside(dt);
@@ -418,7 +430,7 @@
 
     const kmh = Math.round(car.kmh), fuel = Math.round(car.fuel);
     if (kmh !== shown.kmh) { shown.kmh = kmh; dom.kmh.textContent = kmh; }
-    if (fuel !== shown.fuel) { shown.fuel = fuel; dom.fuelBar.style.width = (fuel / car.maxFuel * 100) + '%'; dom.fuelBar.style.background = fuel < 60 ? '#d2473b' : '#f7bd0c'; dom.fuelL.textContent = fuel + ' L'; }
+    if (fuel !== shown.fuel) { shown.fuel = fuel; dom.fuelBar.style.width = (fuel / car.maxFuel * 100) + '%'; dom.fuelBar.style.background = fuel < car.maxFuel * .25 ? '#d2473b' : '#f7bd0c'; dom.fuelL.textContent = fuel + ' L'; }
   }
   const shown = { kmh: -1, fuel: -1 };
 

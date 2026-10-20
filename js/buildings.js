@@ -187,13 +187,14 @@
     if (!slot) return;
     const h = w / slot.aspect, g = PLANE.clone(), uv = g.attributes.uv;
     for (let i = 0; i < uv.count; i++) uv.setXY(i, slot.u0 + uv.getX(i) * (slot.u1 - slot.u0), slot.vBot + uv.getY(i) * (slot.vTop - slot.vBot));
-    SIGNS.add(g, M4(x, y, z, ry, w, h, 1), null);
     const B = o.bucket || MISC, nx = Math.sin(ry), nz = Math.cos(ry);
+    SIGNS.add(g, M4(x, y, z, ry, w, h, 1), null);
+    SIGNS.add(g.clone(), M4(x - nx * .13, y, z - nz * .13, ry + PI, w, h, 1), null); // same face on the back, so a sign reads from the chase camera whichever way it was turned
     if (o.back !== false) box(B, o.backColor || '#2b2e33', x - nx * .06, y, z - nz * .06, w + .14, h + .14, .1, ry);
     if (o.posts) {
-      const px = Math.cos(ry), pz = -Math.sin(ry), off = w / 2 - .35, gy = G(x, z), top = y - h / 2 + .1;
+      const px = Math.cos(ry), pz = -Math.sin(ry), off = w / 2 - .35, top = y - h / 2 + .1;
       for (const s of [-1, 1]) { const qx = x + px * off * s - nx * .1, qz = z + pz * off * s - nz * .1; const y0 = G(qx, qz); boxB(B, o.postColor || C.pole, qx, y0 - .2, qz, .12, top - y0 + .2, .12, ry); }
-      if (o.solid !== false) W.solid(x, z, Math.max(.6, w * .3), 'sign'); void gy;
+      if (o.solid !== false) W.solid(x, z, Math.max(.6, w * .3), 'sign');
     }
   }
   const lamp = (x, z, ry, h = 6) => { const y = G(x, z); lampPosts.push({ x, y, z, ry, h }); box(LAMP, null, x + Math.sin(ry) * 1.15, y + h - .06, z + Math.cos(ry) * 1.15, .78, .16, .34, ry); };
@@ -353,9 +354,9 @@
     // chimneys beside the boiler house, smoke drifting with the wind
     for (const [u, h] of [[-1, 24], [5, 28], [11, 26]]) { const p = F.to(u, 11.2); const c = chimney(B, p.x, p.z, h); smokeAt(c.x, c.z, c.top, 11); }
     // coal heap and an inclined stacker conveyor up into the boiler house
-    { const p = F.to(-7, 9), y = G(p.x, p.z); cone(B, C.coal, p.x, y - .2, p.z, 3.6, 2.6, 12); W.solid(p.x, p.z, 3.2, 'coal');
-      const a = F.to(-9.5, 9.8), b = F.to(-.6, 5.2); beam(B, C.grey, a.x, y + 1.2, a.z, b.x, y + 8.4, b.z, 1.1, .5);
-      for (const t of [.3, .65]) { const q = F.to(-9.5 + 8.9 * t, 9.8 - 4.6 * t), yq = G(q.x, q.z); boxB(B, C.steel, q.x, yq, q.z, .2, 1.2 + 7.2 * t - .4, .2, F.ry); } }
+    { const p = F.to(-8, -3.5), y = G(p.x, p.z); cone(B, C.coal, p.x, y - .2, p.z, 3.6, 2.6, 12); W.solid(p.x, p.z, 3.2, 'coal'); // heap on the camera-facing side so the stacker runs across the view, not along it
+      const a = F.to(-10, -4.5), b = F.to(-.6, 5.2); beam(B, C.grey, a.x, y + 1.2, a.z, b.x, y + 8.4, b.z, 1.1, .5);
+      for (const t of [.3, .65]) { const q = F.to(-10 + 9.4 * t, -4.5 + 9.7 * t), yq = G(q.x, q.z); boxB(B, C.steel, q.x, yq, q.z, .2, 1.2 + 7.2 * t - .4, .2, F.ry); } }
     // transformer yard and two pylons with wires leaving the site
     { for (const [du, dv] of [[-6.5, -9], [-3.5, -9], [-6.5, -12], [-3.5, -12]]) { const y = fG(F, du, dv) + .05; fbox(B, '#5f666e', F, du, dv, y, 1.8, 2.2, 1.4); for (const k of [-.5, 0, .5]) fcyl(B, '#d9d2c8', F, du + k, dv, y + 2.2, .08, .08, .7, 6); fsolid(F, du, dv, 2, 1.6, 'transformer'); }
       const pylon = (u, v, h) => { const p = F.to(u, v), y = G(p.x, p.z), s = Math.sin(F.ry), c = Math.cos(F.ry);
@@ -425,7 +426,7 @@
       beam(B, C.dark, b.x - px * .9, yb + .1, b.z - pz * .9, b.x + px * .9, yb + .1, b.z + pz * .9, 1.0, 1.0, true);
       const s = F.to(6.5, 13), ys = G(s.x, s.z); cone(B, C.ore, s.x, ys - .3, s.z, 4.6, 3.8, 11); W.solid(s.x, s.z, 4.0, 'stockpile');
       const mats = ['#8c7b6a', '#6f6a66', '#a08a6a'].map(h => W.mat(h, { flat: true }));
-      const oreG = new T.DodecahedronGeometry(.7, 0); for (let i = 0; i < 8; i++) { const sc = .65 + W.rng() * .45, m = new T.Mesh(oreG, mats[i % 3]); m.scale.setScalar(sc); const q = F.to(3.5 + W.rng() * 5, 2.5 + W.rng() * 5); m.position.set(q.x, 0, q.z); m.rotation.set(W.rng() * 3, W.rng() * 3, 0); W.pushable(m, .6 * sc, .75 * sc, { tag: 'ore' }); BLD.meshes.push(m); } }
+      const oreG = new T.DodecahedronGeometry(.7, 0); for (let i = 0; i < 8; i++) { const sc = .65 + W.rng() * .45, m = new T.Mesh(oreG, mats[i % 3]); m.scale.setScalar(sc); const q = F.to(3.5 + W.rng() * 2.5, 1.5 + W.rng() * 2.5); m.position.set(q.x, 0, q.z); /* the pocket clear of the conveyor legs */ m.rotation.set(W.rng() * 3, W.rng() * 3, 0); W.pushable(m, .6 * sc, .75 * sc, { tag: 'ore' }); BLD.meshes.push(m); } }
     // site office (an Open T blue container), workshop, floodlight mast, sign
     { const y = fG(F, -9, 9.5) + .05; fbox(B, C.blue, F, -9, 9.5, y, 2.6, 2.7, 6.2); fbox(B, C.white, F, -9, 9.5, y + 2.7, 2.8, .15, 6.4); fbox(WIN, null, F, -9, 8.17, y + 1.1, .08, 1.0, 1.4); fbox(WIN, null, F, -7.5, 8.17, y + 1.1, .08, 1.0, 1.4); fbox(B, C.dark, F, -11, 8.17, y, .1, 2.0, .9); fsolid(F, -9, 9.5, 2.8, 6.4, 'office'); }
     { const y = fG(F, -2, 14) + .05; fbox(B, C.grey, F, -2, 14, y, 4.5, 4.2, 9); fbox(B, C.roof, F, -2, 14, y + 4.2, 4.8, .3, 9.3); fbox(B, '#3a3d42', F, -2, 11.72, y, .1, 3.2, 3.4); fsolid(F, -2, 14, 4.7, 9.2, 'workshop'); }
@@ -528,8 +529,8 @@
     cyl(RB, null, 0, 0, 0, .55, .55, 1.5, 10, 0, PI / 2); RB.add(new T.ConeGeometry(.55, 1.0, 10).rotateX(PI / 2), M4(0, 0, 1.2), null);
     for (let k = 0; k < 3; k++) { const a = k * PI * 2 / 3, dx = -Math.sin(a), dy = Math.cos(a); RB.add(cylGeo(.1, .42, 8.5, 5), M4(dx * 4.6, dy * 4.6, 0, 0, 1, 1, 1, 0, a), null); }
     const rotorGeo = RB.build().geometry;
-    // three turbines south-east of the dirt track (the chase camera sits south-east, so their rotors stay in frame), two beyond it
-    const spots = [[-43, 63], [-50, 75], [-58, 84], [-72, 62], [-84, 74]];
+    // turbines north and east of the dirt track, off the chase camera's (16, 22) sightline band so a tower never hides the truck
+    const spots = [[-62, 90], [-46, 86], [-34, 68], [-42, 102], [-20, 76]];
     const rm = new T.InstancedMesh(rotorGeo, W.M.white, spots.length); rm.frustumCulled = false; rm.castShadow = true; rm.name = 'bld-rotors'; W.scene.add(rm); BLD.meshes.push(rm); BLD.rotorMesh = rm;
     spots.forEach(([x, z], i) => {
       const y = G(x, z), yaw = .75 + (W.rng() - .5) * .25, H = 17;
