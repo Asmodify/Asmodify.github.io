@@ -142,12 +142,16 @@
   W.stations = []; W.places = {}; W.markers = [];
   W.addStation = s => { s.r = s.r || 5; s.y = W.groundY(s.x, s.z); W.stations.push(s); return s; };
   W.addPlace = (id, p) => { p.id = id; p.r = p.r || 10; W.places[id] = p; return p; };
-  // True when nothing important is within r of (x,z): stations, places, solids, roads, water, the centre plaza.
+  // Reserved ground: areas a module claims (ramps, a bowling lane) so later scatterers (foliage) keep off them.
+  W.reserved = [];
+  W.reserve = (x, z, r, tag) => { const a = { x, z, r, tag }; W.reserved.push(a); return a; };
+  // True when nothing important is within r of (x,z): stations, places, reserved ground, solids, roads, water, the centre plaza.
   W.isClear = (x, z, r = 2) => {
     if (Math.hypot(x, z) < 24 + r) return false;
     if (W.inWater(x, z)) return false;
     for (const s of W.stations) if (Math.hypot(x - s.x, z - s.z) < s.r + r + 4) return false;
     for (const id in W.places) { const p = W.places[id]; if (Math.hypot(x - p.x, z - p.z) < p.r + r) return false; }
+    for (const a of W.reserved) if (Math.hypot(x - a.x, z - a.z) < a.r + r) return false;
     if (W.roads && W.roads.distance(x, z) < 4.5 + r) return false;
     for (const s of W.solids) if (Math.hypot(x - s.x, z - s.z) < s.r + r) return false;
     return true;
@@ -157,7 +161,10 @@
   let toastT;
   W.toast = msg => { dom.toast.textContent = msg; dom.toast.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => dom.toast.classList.remove('show'), 2400); };
   W.panelId = null; let panelSticky = false;
-  W.openPanel = (html, { id = null, sticky = false } = {}) => { if (W.panelId === id && id) return; W.panelId = id; panelSticky = sticky; dom.panelBody.innerHTML = html; dom.panel.classList.add('open'); W.sfx('open'); };
+  W.openPanel = (html, { id = null, sticky = false, refresh = false } = {}) => {
+    if (W.panelId === id && id) { if (refresh) dom.panelBody.innerHTML = html; return; }
+    W.panelId = id; panelSticky = sticky; dom.panelBody.innerHTML = html; dom.panel.classList.add('open'); W.sfx('open');
+  };
   W.closePanel = () => { if (!dom.panel.classList.contains('open')) return; W.panelId = null; panelSticky = false; dom.panel.classList.remove('open'); };
   dom.panel.querySelector('.close').addEventListener('click', () => { W.dismissed = W.insideStation; W.closePanel(); });
   W.hud = {
@@ -332,7 +339,7 @@
     // static and dynamic solids
     for (const s of W.solids) {
       const dx = car.x - s.x, dz = car.z - s.z, d = Math.hypot(dx, dz), min = s.r + 1.6;
-      if (d < min && d > 0 && (s.yMax == null || car.y < s.yMax)) { car.x = s.x + dx / d * min; car.z = s.z + dz / d * min; if (Math.abs(car.v) > 6 && now - lastBonk > 600) { lastBonk = now; W.sfx('bonk', { v: Math.abs(car.v) }); W.toast('Bonk.'); } car.v *= -.25; if (s.onHit) s.onHit(); }
+      if (d < min && d > 0 && (s.yMax == null || car.y < s.yMax)) { const impact = Math.abs(car.v); car.x = s.x + dx / d * min; car.z = s.z + dz / d * min; if (impact > 6 && now - lastBonk > 600) { lastBonk = now; W.sfx('bonk', { v: impact }); W.toast('Bonk.'); } car.v *= -.25; if (s.onHit) s.onHit(impact); }
     }
 
     // pushables

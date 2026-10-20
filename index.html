@@ -89,7 +89,8 @@ button { font: inherit; cursor: pointer; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 @media (max-width: 560px) {
-  #mini { width: 96px; height: 96px; top: calc(env(safe-area-inset-top, 0px) + 112px); }
+  #mini { width: 96px; height: 96px; top: calc(env(safe-area-inset-top, 0px) + 162px); }
+  .chip { padding: 6px 10px; font-size: .8rem; }
   .badge p { display: none; }
   .left { max-width: 200px; }
   .speed { font-size: 1.5rem; }
@@ -155,9 +156,9 @@ button { font: inherit; cursor: pointer; }
 <script src="js/terrain.js"></script>
 <script src="js/roads.js"></script>
 <script src="js/buildings.js"></script>
-<script src="js/foliage.js"></script>
 <script src="js/stations.js"></script>
 <script src="js/missions.js"></script>
+<script src="js/foliage.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

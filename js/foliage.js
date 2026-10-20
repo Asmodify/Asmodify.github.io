@@ -222,6 +222,7 @@
       if (hyp(x, z) < 24 + r || W.inWater(x, z)) return false;
       for (const s of W.stations) if (hyp(x - s.x, z - s.z) < s.r + r + 4) return false;
       for (const id in W.places) { const p = W.places[id]; if (hyp(x - p.x, z - p.z) < p.r + r) return false; }
+      for (const a of W.reserved || []) if (hyp(x - a.x, z - a.z) < a.r + r) return false; // ground claimed by missions (ramps, lane)
       if (roadNear(x, z, 4.5 + r) || solidNear(x, z, r)) return false;
       return true;
     }
