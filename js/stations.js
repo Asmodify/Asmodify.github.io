@@ -9,12 +9,21 @@
     const c = document.createElement('canvas'); c.width = 260; c.height = 44; const x = c.getContext('2d');
     x.font = '800 40px Archivo'; x.textBaseline = 'middle'; x.textAlign = 'center'; x.fillText('KHUSLEN', 130, 23);
     const d = x.getImageData(0, 0, 260, 44).data, step = 4, S = .78;
-    const m1 = W.mat('#1c1b19'), m2 = W.mat('#1f4fd1');
-    for (let py = 0; py < 44; py += step) for (let px = 0; px < 260; px += step) if (d[(py * 260 + px) * 4 + 3] > 140) {
-      const m = new T.Mesh(boxG, px > 150 ? m2 : m1); m.scale.set(S, S * 1.1, S);
-      m.position.set((px - 130) / step * S * 1.02, 0, -16 + (py - 22) / step * S * 1.02);
-      W.pushable(m, S * .55, S * .62, { tag: 'letter' });
-    }
+    // One InstancedMesh for all ~190 blocks (one draw call instead of one per block). Each block's
+    // physics body is a bare Object3D proxy that core moves; its matrix is copied into the instance.
+    const cells = [];
+    for (let py = 0; py < 44; py += step) for (let px = 0; px < 260; px += step) if (d[(py * 260 + px) * 4 + 3] > 140) cells.push([px, py]);
+    const letters = new T.InstancedMesh(boxG, W.mat('#ffffff'), cells.length);
+    letters.castShadow = letters.receiveShadow = true;
+    const dark = new T.Color('#1c1b19'), blue = new T.Color('#1f4fd1'), proxies = [];
+    cells.forEach(([px, py], i) => {
+      const o = new T.Object3D(); o.scale.set(S, S * 1.1, S);
+      o.position.set((px - 130) / step * S * 1.02, 0, -16 + (py - 22) / step * S * 1.02);
+      W.pushable(o, S * .55, S * .62, { tag: 'letter' });
+      letters.setColorAt(i, px > 150 ? blue : dark); proxies.push(o);
+    });
+    letters.instanceColor.needsUpdate = true; W.scene.add(letters);
+    W.onUpdate(() => { proxies.forEach((o, i) => { o.updateMatrix(); letters.setMatrixAt(i, o.matrix); }); letters.instanceMatrix.needsUpdate = true; });
     const sub = W.decal(W.textTex(['', 'software developer · fleet systems · python first'], { w: 1400, h: 120, sub: '500 46px "IBM Plex Mono"' }), 30, 2.6);
     W.place(sub, 0, -10.6, .04); W.scene.add(sub);
 

@@ -276,6 +276,7 @@
     const S = MS(); mx.clearRect(0, 0, 264, 264);
     mx.save(); mx.beginPath(); mx.arc(MR, MR, MR - 2, 0, 7); mx.clip();
     if (miniBase) mx.drawImage(miniBase, 0, 0); else { mx.fillStyle = 'rgba(169,184,120,.6)'; mx.fillRect(0, 0, 264, 264); }
+    for (const id in W.places) { const p = W.places[id]; if (p.hidden) continue; mx.fillStyle = 'rgba(24,32,43,.85)'; mx.strokeStyle = 'rgba(255,255,255,.9)'; mx.lineWidth = 1.5; mx.beginPath(); mx.arc(MR + p.x * S, MR + p.z * S, 3.5, 0, 7); mx.fill(); mx.stroke(); }
     for (const s of W.stations) { mx.fillStyle = s.color; mx.beginPath(); mx.arc(MR + s.x * S, MR + s.z * S, 7, 0, 7); mx.fill(); }
     for (const m of W.markers) { mx.fillStyle = m.color || '#1f4fd1'; mx.beginPath(); mx.arc(MR + m.x * S, MR + m.z * S, m.big ? 8 : 5, 0, 7); mx.fill(); if (m.big) { mx.strokeStyle = '#fff'; mx.lineWidth = 2; mx.stroke(); } }
     if (W.target) { mx.strokeStyle = W.target.color || '#1f4fd1'; mx.lineWidth = 2.5; mx.beginPath(); mx.arc(MR + W.target.x * S, MR + W.target.z * S, 9 + 3 * Math.sin(performance.now() / 200), 0, 7); mx.stroke(); }
