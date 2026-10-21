@@ -188,7 +188,7 @@
     });
   }
   function treeSolid(mesh, i, x, z, leaf) {
-    const brk = instBreak(mesh, i, { at: 14, y: 2.2, colors: ['#5c4330', leaf, leaf], n: 14, size: [.2, .6], kind: 'wood' }); // only a boosted truck fells a tree
+    const brk = instBreak(mesh, i, { at: 14, y: 2.2, colors: ['#5c4330', leaf, leaf], n: 14, size: [.2, .6], kind: 'wood' }); // 14 m/s: a flat-out truck fells a tree (the unboosted off-road cap is 15.6 m/s); slower hits only shake it
     queueSolid(x, z, .6, 'tree', () => {
       const now = performance.now(); if (now - lastHit < 250) return; lastHit = now;
       W.puff(x, z, 1.3, leaf); W.puff(x + .7, z - .4, .9, leaf);

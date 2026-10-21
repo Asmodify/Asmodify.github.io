@@ -177,7 +177,8 @@
     if (o.sound !== false) W.sfx('crash', { v: imp, kind: o.kind || 'wood' });
   };
   function stepDebris(dt) {
-    if (!alive.length) { if (debris.count) debris.count = 0; return; }
+    if (!alive.length) { if (debris.visible) { debris.count = 0; debris.visible = false; } return; } // hidden while empty: no render-list walk (boot's warm-up renders happen while it is still visible, so its shaders are compiled)
+    debris.visible = true;
     for (let i = alive.length - 1; i >= 0; i--) {
       const d = alive[i]; d.life -= dt;
       if (d.life <= 0) { alive.splice(i, 1); pool.push(d); continue; }
@@ -193,9 +194,9 @@
     debris.count = alive.length; debris.instanceMatrix.needsUpdate = true; debris.instanceColor.needsUpdate = true;
   }
   const smashed = () => {
-    W.smashed++; W.hud.set('smash', `<b>${W.smashed}</b> smashed · ${COARSE ? '↺ Reset' : '<span class="mono">R</span>'} puts it back`);
-    if (!restoreBtn) restoreBtn = W.hud.button('↺ Reset', () => W.reset(), { id: 'restore', title: 'Put every smashed prop back (R)' });
-    if (!smashToast) { smashToast = true; W.toast(COARSE ? 'Smash! Tap ↺ Reset to put everything back' : 'Smash! Press R to put everything back'); }
+    W.smashed++; W.hud.set('smash', `<b>${W.smashed}</b> smashed · ↺ Reset puts ${W.smashed === 1 ? 'it' : 'them'} back`);
+    if (!restoreBtn) restoreBtn = W.hud.button('↺ Reset', () => W.restoreProps(), { id: 'restore', title: 'Put every smashed prop back; the truck and any mission carry on (R restarts the whole world)' });
+    if (!smashToast) { smashToast = true; W.toast('Smash! The ↺ Reset chip puts everything back'); }
   };
   W.breakBody = (b, impact = 10, dx = 0, dz = 0) => {
     if (b.dead || !b.brk) return; b.dead = true; b.rest = true; b.v.set(0, 0, 0); b.w.set(0, 0, 0); b.mesh.visible = false;
@@ -207,6 +208,7 @@
     W.shatter(s.x, W.groundY(s.x, s.z) + (s.brk.y || 1), s.z, Object.assign({ impact, dx, dz }, s.brk)); smashed();
     if (s.brk.onBreak) { try { s.brk.onBreak(s, impact); } catch (e) { console.error('onBreak failed', e); } }
   };
+  W.restoreProps = () => { for (const b of W.bodies) if (b.dead) W.resetBody(b); W.restoreBroken(); }; // the Reset chip: props only, the truck and the mission carry on
   W.restoreBroken = () => { // bodies come back through W.resetBody; this handles solids, the debris and the HUD
     for (const s of W.broken) { s.dead = false; if (s.brk && s.brk.onRestore) { try { s.brk.onRestore(s); } catch (e) { console.error('onRestore failed', e); } } }
     W.broken.length = 0; while (alive.length) pool.push(alive.pop()); debris.count = 0;
