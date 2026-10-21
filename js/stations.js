@@ -6,6 +6,8 @@
   W.onReady(() => {
     /* ---------- centre plaza: name in knockable blocks ---------- */
     const boxG = new T.BoxGeometry(1, 1, 1);
+    // what smashes into what: crates splinter at 7 m/s (about 25 km/h), cones shatter at 9
+    const CRATE = { at: 7, colors: ['#b98a52', '#8a5a2b', '#d9b27c'], n: 10, size: [.14, .4], kind: 'wood' }, CONE = { at: 9, colors: ['#f07a2a', '#ffffff'], n: 6, size: [.1, .28], kind: 'plastic' };
     const c = document.createElement('canvas'); c.width = 260; c.height = 44; const x = c.getContext('2d');
     x.font = '800 40px Archivo'; x.textBaseline = 'middle'; x.textAlign = 'center'; x.fillText('KHUSLEN', 130, 23);
     const d = x.getImageData(0, 0, 260, 44).data, step = 4, S = .78;
@@ -19,23 +21,25 @@
     cells.forEach(([px, py], i) => {
       const o = new T.Object3D(); o.scale.set(S, S * 1.1, S);
       o.position.set((px - 130) / step * S * 1.02, 0, -16 + (py - 22) / step * S * 1.02);
-      bodies.push(W.pushable(o, S * .55, S * .62, { tag: 'letter' }));
+      const b = W.pushable(o, S * .55, S * .62, { tag: 'letter' }); bodies.push(b);
+      W.breakable(b, { at: 12, colors: [px > 150 ? '#1f4fd1' : '#1c1b19'], n: 5, size: [.16, .34], kind: 'plastic', onBreak: () => { lettersDirty = true; }, onRestore: () => { lettersDirty = true; } });
       letters.setColorAt(i, px > 150 ? blue : dark); proxies.push(o);
     });
     letters.instanceColor.needsUpdate = true; W.scene.add(letters);
-    let lettersDirty = true; // sync while any block moves, plus one frame after it settles (and once on reset)
+    let lettersDirty = true; // sync while any block moves, plus one frame after it settles (and once on reset or a smash)
+    const GONE = new T.Matrix4().makeScale(0, 0, 0); // a smashed block collapses to nothing until R restores it
     W.onReset(() => { lettersDirty = true; });
     W.onUpdate(() => {
       const moving = bodies.some(b => !b.rest); if (!moving && !lettersDirty) return;
-      proxies.forEach((o, i) => { o.updateMatrix(); letters.setMatrixAt(i, o.matrix); }); letters.instanceMatrix.needsUpdate = true; lettersDirty = moving;
+      proxies.forEach((o, i) => { if (!o.visible) { letters.setMatrixAt(i, GONE); return; } o.updateMatrix(); letters.setMatrixAt(i, o.matrix); }); letters.instanceMatrix.needsUpdate = true; lettersDirty = moving;
     });
     const sub = W.decal(W.textTex(['', 'software developer · fleet systems · python first'], { w: 1400, h: 120, sub: '500 46px "IBM Plex Mono"' }), 30, 2.6);
     W.place(sub, 0, -10.6, .04); W.scene.add(sub);
 
     // crates and a row of cones near the start
-    [[8, 4], [9.3, 4], [8.6, 5.3], [-10, 8], [-10, 9.3], [14, -8]].forEach(([cx, cz]) => { const m = new T.Mesh(boxG, M.crate); m.scale.setScalar(1.1); m.position.set(cx, 0, cz); m.rotation.y = W.rng(); W.pushable(m, .55, .77, { tag: 'crate' }); });
+    [[8, 4], [9.3, 4], [8.6, 5.3], [-10, 8], [-10, 9.3], [14, -8]].forEach(([cx, cz]) => { const m = new T.Mesh(boxG, M.crate); m.scale.setScalar(1.1); m.position.set(cx, 0, cz); m.rotation.y = W.rng(); W.breakable(W.pushable(m, .55, .77, { tag: 'crate' }), CRATE); });
     const coneG = new T.ConeGeometry(.4, 1.1, 12);
-    for (let i = 0; i < 7; i++) { const m = new T.Mesh(coneG, M.cone); m.position.set(-4 + i * 1.6, 0, 10 + Math.sin(i) * .6); W.pushable(m, .55, .5, { tag: 'cone' }); }
+    for (let i = 0; i < 7; i++) { const m = new T.Mesh(coneG, M.cone); m.position.set(-4 + i * 1.6, 0, 10 + Math.sin(i) * .6); W.breakable(W.pushable(m, .55, .5, { tag: 'cone' }), CONE); }
 
     /* ---------- stations ---------- */
     let fuelSfxOn = false;
@@ -101,7 +105,7 @@
       [[-2.8, -1.8], [2.8, -1.8], [-2.8, 1.8], [2.8, 1.8]].forEach(([x, z]) => g.add(W.cyl(.18, .18, 4.1, M.white, x, 2.05, z)));
       [-1.2, 1.2].forEach(x => { g.add(W.box(.9, 1.6, .6, M.white, x, .8, 0), W.box(.6, .4, .05, M.glass, x, 1.2, .33)); });
       W.scene.add(W.shadowed(g)); W.solid(s.x + 6.3, s.z - 1, .8); W.solid(s.x + 8.7, s.z - 1, .8);
-      for (let i = 0; i < 6; i++) { const m = new T.Mesh(coneG, M.cone); m.position.set(s.x - 6, 0, s.z - 6 + i * 2.2); W.pushable(m, .55, .5, { tag: 'cone' }); }
+      for (let i = 0; i < 6; i++) { const m = new T.Mesh(coneG, M.cone); m.position.set(s.x - 6, 0, s.z - 6 + i * 2.2); W.breakable(W.pushable(m, .55, .5, { tag: 'cone' }), CONE); }
     })();
     (() => { // SentimentAI billboard with the real dashboard, plus comment bubbles
       const s = defs[2], g = new T.Group(); W.place(g, s.x - 1, s.z - 8); g.rotation.y = .35;
@@ -110,7 +114,7 @@
       const screen = new T.Mesh(new T.PlaneGeometry(10, 6.8), new T.MeshBasicMaterial({ map: tex })); screen.position.set(0, 5.2, .21); g.add(screen);
       W.scene.add(W.shadowed(g)); W.solid(s.x - 2.2, s.z - 8.2, 1.4); W.solid(s.x + .5, s.z - 7.6, 1.4); W.solid(s.x + 2.4, s.z - 7, 1.4); W.solid(s.x - 4.4, s.z - 9, 1.4);
       const bm = [W.mat('#1d8a5b'), W.mat('#d2473b'), W.mat('#9aa1a6')];
-      const bubbleG = new T.SphereGeometry(.5, 12, 8); for (let i = 0; i < 9; i++) { const b = new T.Mesh(bubbleG, bm[i % 3]); b.position.set(s.x - 7 + (i % 3) * 1.4, 0, s.z + 2 + Math.floor(i / 3) * 1.4); W.pushable(b, .5, .55, { tag: 'bubble' }); }
+      const bubbleG = new T.SphereGeometry(.5, 12, 8); for (let i = 0; i < 9; i++) { const b = new T.Mesh(bubbleG, bm[i % 3]); b.position.set(s.x - 7 + (i % 3) * 1.4, 0, s.z + 2 + Math.floor(i / 3) * 1.4); W.breakable(W.pushable(b, .5, .55, { tag: 'bubble' }), { at: 6, colors: [['#1d8a5b', '#d2473b', '#9aa1a6'][i % 3], '#ffffff'], n: 7, size: [.08, .22], kind: 'glass' }); }
     })();
     (() => { // About: a small ger camp
       const s = defs[3];

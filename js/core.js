@@ -141,7 +141,77 @@
     if (opts.grounded !== false) mesh.position.y = W.groundY(mesh.position.x, mesh.position.z) + half;
     W.bodies.push(b); return b;
   };
-  W.resetBody = b => { b.mesh.position.copy(b.home); b.mesh.position.y = W.groundY(b.home.x, b.home.z) + b.half; b.mesh.rotation.copy(b.homeRot); b.v.set(0, 0, 0); b.w.set(0, 0, 0); b.rest = true; };
+  W.resetBody = b => {
+    if (b.dead) { b.dead = false; b.mesh.visible = true; if (b.brk && b.brk.onRestore) { try { b.brk.onRestore(b); } catch (e) { console.error('onRestore failed', e); } } }
+    b.mesh.position.copy(b.home); b.mesh.position.y = W.groundY(b.home.x, b.home.z) + b.half; b.mesh.rotation.copy(b.homeRot); b.v.set(0, 0, 0); b.w.set(0, 0, 0); b.rest = true;
+  };
+
+  /* ---------------- breakables: props that shatter into debris when hit hard enough ---------------- */
+  // W.breakable(target, opts) marks a pushable body (from W.pushable) or a solid (from W.solid). opts: at (impact
+  // speed in m/s that breaks it), colors (debris colours), n (pieces), size ([min, max] m), kind ('wood' | 'metal' |
+  // 'rock' | 'glass' | 'plastic', picks the sound), y (debris height above ground for solids), onBreak(target, impact)
+  // and onRestore(target) for the owning module to hide and show its visuals (bodies hide their own mesh).
+  // A broken body is hidden and skipped by physics; a broken solid stops colliding. W.reset puts everything back.
+  // Debris is one InstancedMesh (one draw call however many pieces fly) with simple ballistic motion and a bounce.
+  const DEBRIS_N = 320, debris = new T.InstancedMesh(new T.BoxGeometry(1, 1, 1), new T.MeshStandardMaterial({ roughness: .85 }), DEBRIS_N);
+  debris.setColorAt(0, new T.Color('#ffffff')); // allocate the colour attribute while count is still the full pool (setColorAt sizes it from count)
+  debris.castShadow = true; debris.frustumCulled = false; debris.count = 0; debris.name = 'debris'; scene.add(debris);
+  const pool = [], alive = [], dM = new T.Matrix4(), dQ = new T.Quaternion(), dS = new T.Vector3();
+  for (let i = 0; i < DEBRIS_N; i++) pool.push({ p: new T.Vector3(), v: new T.Vector3(), w: new T.Vector3(), r: new T.Euler(), s: new T.Vector3(), c: new T.Color(), life: 0, max: 1 });
+  W.broken = []; W.smashed = 0; let smashToast = false, restoreBtn = null;
+  W.debris = { alive, get count() { return alive.length; } };
+  W.breakable = (t, opts = {}) => { t.brk = Object.assign({ at: 8, colors: ['#9a8c7a'], n: 8, size: [.18, .42], kind: 'wood' }, opts); return t; };
+  W.shatter = (x, y, z, o = {}) => {
+    const n = Math.min(o.n || 8, DEBRIS_N), cols = o.colors && o.colors.length ? o.colors : ['#9a8c7a'], sz = o.size || [.18, .42], imp = Math.max(4, o.impact || 8), dx = o.dx || 0, dz = o.dz || 0;
+    for (let i = 0; i < n; i++) {
+      const d = pool.length ? pool.pop() : alive.shift(); // when the pool is empty the oldest piece is recycled
+      const a = W.rng() * 6.2832, sp = 2 + imp * (.25 + .35 * W.rng());
+      d.p.set(x + (W.rng() - .5) * .8, y + (W.rng() - .5) * .8, z + (W.rng() - .5) * .8);
+      d.v.set(Math.cos(a) * sp * .7 + dx * imp * .45, 3 + imp * .3 * W.rng() + W.rng() * 3, Math.sin(a) * sp * .7 + dz * imp * .45);
+      d.w.set(W.rand(-9, 9), W.rand(-9, 9), W.rand(-9, 9)); d.r.set(W.rng() * 3, W.rng() * 3, W.rng() * 3);
+      const k = W.rand(sz[0], sz[1]); d.s.set(k * W.rand(.6, 1.4), k * W.rand(.4, 1), k * W.rand(.6, 1.4));
+      d.c.set(cols[(W.rng() * cols.length) | 0]); d.max = d.life = W.rand(2.2, 3.4);
+      alive.push(d);
+    }
+    W.puff(x, z, 1.4); W.puff(x + dx, z + dz, 1);
+    if (o.sound !== false) W.sfx('crash', { v: imp, kind: o.kind || 'wood' });
+  };
+  function stepDebris(dt) {
+    if (!alive.length) { if (debris.count) debris.count = 0; return; }
+    for (let i = alive.length - 1; i >= 0; i--) {
+      const d = alive[i]; d.life -= dt;
+      if (d.life <= 0) { alive.splice(i, 1); pool.push(d); continue; }
+      d.v.y -= 30 * dt; d.p.addScaledVector(d.v, dt);
+      d.r.x += d.w.x * dt; d.r.y += d.w.y * dt; d.r.z += d.w.z * dt;
+      const gy = W.groundY(d.p.x, d.p.z) + d.s.y * .5;
+      if (d.p.y < gy) { d.p.y = gy; d.v.y *= -.35; if (d.v.y < 30 * dt) d.v.y = 0; d.v.x *= .75; d.v.z *= .75; d.w.multiplyScalar(.6); }
+    }
+    for (let i = 0; i < alive.length; i++) {
+      const d = alive[i], k = d.life < .6 ? d.life / .6 : 1; // pieces shrink away at the end of their life
+      dQ.setFromEuler(d.r); dS.copy(d.s).multiplyScalar(k); dM.compose(d.p, dQ, dS); debris.setMatrixAt(i, dM); debris.setColorAt(i, d.c);
+    }
+    debris.count = alive.length; debris.instanceMatrix.needsUpdate = true; debris.instanceColor.needsUpdate = true;
+  }
+  const smashed = () => {
+    W.smashed++; W.hud.set('smash', `<b>${W.smashed}</b> smashed · ${COARSE ? '↺ Reset' : '<span class="mono">R</span>'} puts it back`);
+    if (!restoreBtn) restoreBtn = W.hud.button('↺ Reset', () => W.reset(), { id: 'restore', title: 'Put every smashed prop back (R)' });
+    if (!smashToast) { smashToast = true; W.toast(COARSE ? 'Smash! Tap ↺ Reset to put everything back' : 'Smash! Press R to put everything back'); }
+  };
+  W.breakBody = (b, impact = 10, dx = 0, dz = 0) => {
+    if (b.dead || !b.brk) return; b.dead = true; b.rest = true; b.v.set(0, 0, 0); b.w.set(0, 0, 0); b.mesh.visible = false;
+    const p = b.mesh.position; W.shatter(p.x, p.y, p.z, Object.assign({ impact, dx, dz }, b.brk)); smashed();
+    if (b.brk.onBreak) { try { b.brk.onBreak(b, impact); } catch (e) { console.error('onBreak failed', e); } }
+  };
+  W.breakSolid = (s, impact = 10, dx = 0, dz = 0) => {
+    if (s.dead || !s.brk) return; s.dead = true; W.broken.push(s);
+    W.shatter(s.x, W.groundY(s.x, s.z) + (s.brk.y || 1), s.z, Object.assign({ impact, dx, dz }, s.brk)); smashed();
+    if (s.brk.onBreak) { try { s.brk.onBreak(s, impact); } catch (e) { console.error('onBreak failed', e); } }
+  };
+  W.restoreBroken = () => { // bodies come back through W.resetBody; this handles solids, the debris and the HUD
+    for (const s of W.broken) { s.dead = false; if (s.brk && s.brk.onRestore) { try { s.brk.onRestore(s); } catch (e) { console.error('onRestore failed', e); } } }
+    W.broken.length = 0; while (alive.length) pool.push(alive.pop()); debris.count = 0;
+    if (W.smashed) { W.smashed = 0; W.hud.remove('smash'); if (restoreBtn) { restoreBtn.remove(); restoreBtn = null; } }
+  };
 
   W.stations = []; W.places = {}; W.markers = [];
   W.addStation = s => { s.r = s.r || 5; s.y = W.groundY(s.x, s.z); W.stations.push(s); return s; };
@@ -266,6 +336,7 @@
   W.reset = () => {
     Object.assign(car, { x: START.x, z: START.z, h: START.h, v: 0, vy: 0, airborne: false, airTime: 0, steer: 0 }); car.y = W.groundY(car.x, car.z);
     for (const b of W.bodies) W.resetBody(b); // knocked props go home before the modules' own reset hooks run
+    W.restoreBroken();
     for (const f of resetFns) { try { f(); } catch (e) { console.error('reset hook failed', e); } }
     W.toast('Back at the start');
   };
@@ -349,15 +420,22 @@
 
     // static and dynamic solids
     for (const s of W.solids) {
+      if (s.dead) continue;
       const dx = car.x - s.x, dz = car.z - s.z, min = s.r + 1.6, d2 = dx * dx + dz * dz;
-      if (d2 < min * min && d2 > 0 && (s.yMax == null || car.y < s.yMax)) { const d = Math.sqrt(d2); const impact = Math.abs(car.v); car.x = s.x + dx / d * min; car.z = s.z + dz / d * min; if (impact > 6 && now - lastBonk > 600) { lastBonk = now; W.sfx('bonk', { v: impact }); W.toast('Bonk.'); } car.v *= -.25; if (s.onHit) s.onHit(impact); }
+      if (d2 < min * min && d2 > 0 && (s.yMax == null || car.y < s.yMax)) {
+        const d = Math.sqrt(d2); const impact = Math.abs(car.v);
+        if (s.brk && impact >= s.brk.at) { W.breakSolid(s, impact, fx * Math.sign(car.v), fz * Math.sign(car.v)); car.v *= .7; continue; } // smashed through, with a jolt
+        car.x = s.x + dx / d * min; car.z = s.z + dz / d * min; if (impact > 6 && now - lastBonk > 600) { lastBonk = now; W.sfx('bonk', { v: impact }); W.toast('Bonk.'); } car.v *= -.25; if (s.onHit) s.onHit(impact);
+      }
     }
 
     // pushables
     for (const b of W.bodies) {
+      if (b.dead) continue;
       const p = b.mesh.position, dx = p.x - car.x, dz = p.z - car.z, d = Math.hypot(dx, dz);
       if (d < b.r + 1.7 && Math.abs(p.y - car.y) < 3 && Math.abs(car.v) > .5) {
         const nx = dx / (d || 1), nz = dz / (d || 1), sp = Math.abs(car.v);
+        if (b.brk && sp >= b.brk.at) { W.breakBody(b, sp, fx * Math.sign(car.v), fz * Math.sign(car.v)); car.v *= .9; continue; }
         b.v.set(nx * sp * .6 + fx * car.v * .5, Math.min(9, sp * .32), nz * sp * .6 + fz * car.v * .5);
         b.w.set((W.rng() - .5) * sp, (W.rng() - .5) * sp, (W.rng() - .5) * sp);
         if (b.rest) W.sfx('hit', { v: sp }); b.rest = false; car.v *= .97; if (b.onHit) b.onHit(b, sp);
@@ -367,10 +445,20 @@
         b.mesh.rotation.x += b.w.x * dt; b.mesh.rotation.y += b.w.y * dt; b.mesh.rotation.z += b.w.z * dt;
         const gy = W.groundY(p.x, p.z) + b.half;
         if (p.y < gy) { p.y = gy; b.v.y *= -.3; if (b.v.y < 30 * dt) b.v.y = 0; /* a bounce gravity would undo this frame is rest, at any frame rate */ b.v.x *= .82; b.v.z *= .82; b.w.multiplyScalar(.8); if (b.v.lengthSq() < .05) { b.rest = true; b.v.set(0, 0, 0); b.w.set(0, 0, 0); } }
-        for (const s of W.solids) { const ex = p.x - s.x, ez = p.z - s.z, m = s.r + b.r, e2 = ex * ex + ez * ez; if (e2 < m * m && e2 > 0) { const e = Math.sqrt(e2); p.x = s.x + ex / e * m; p.z = s.z + ez / e * m; b.v.x *= -.4; b.v.z *= -.4; } }
+        for (const s of W.solids) {
+          if (s.dead) continue;
+          const ex = p.x - s.x, ez = p.z - s.z, m = s.r + b.r, e2 = ex * ex + ez * ez;
+          if (e2 < m * m && e2 > 0) {
+            if (b.brk && b.v.x * b.v.x + b.v.z * b.v.z >= b.brk.at * b.brk.at) { W.breakBody(b, Math.hypot(b.v.x, b.v.z), -ex / Math.sqrt(e2), -ez / Math.sqrt(e2)); break; } // thrown into a wall hard enough
+            const e = Math.sqrt(e2); p.x = s.x + ex / e * m; p.z = s.z + ez / e * m; b.v.x *= -.4; b.v.z *= -.4;
+          }
+        }
+        if (b.dead) continue;
         const pr = Math.hypot(p.x, p.z); if (pr > R + 4) { p.x *= (R + 4) / pr; p.z *= (R + 4) / pr; b.v.x *= -.4; b.v.z *= -.4; }
       }
     }
+
+    stepDebris(dt);
 
     // stations
     let inside = null;

@@ -173,16 +173,29 @@
   const shakes = []; let lastHit = 0;
   // Solids are queued and registered after placement: W.isClear scans every solid, so adding
   // hundreds of trees while still scattering would make each later check slower.
-  const pending = [];
-  const queueSolid = (x, z, r, tag, onHit) => { if (hyp(x, z) <= DRIVE_R + 2) pending.push({ x, z, r, tag, onHit }); };
+  const pending = [], GONE = new T.Matrix4().makeScale(0, 0, 0);
+  const queueSolid = (x, z, r, tag, onHit, brk) => { if (hyp(x, z) <= DRIVE_R + 2) pending.push({ x, z, r, tag, onHit, brk }); };
+  // A breakable instance: hit hard enough it collapses to nothing and throws debris; W.reset brings it back.
+  function instBreak(mesh, i, opts) {
+    let base = null;
+    return Object.assign(opts, {
+      onBreak() {
+        for (let k = shakes.length - 1; k >= 0; k--) if (shakes[k].mesh === mesh && shakes[k].i === i) { base = shakes[k].base; shakes.splice(k, 1); }
+        if (!base) { base = new T.Matrix4(); mesh.getMatrixAt(i, base); }
+        mesh.setMatrixAt(i, GONE); mesh.instanceMatrix.needsUpdate = true;
+      },
+      onRestore() { if (base) { mesh.setMatrixAt(i, base); mesh.instanceMatrix.needsUpdate = true; } }
+    });
+  }
   function treeSolid(mesh, i, x, z, leaf) {
+    const brk = instBreak(mesh, i, { at: 14, y: 2.2, colors: ['#5c4330', leaf, leaf], n: 14, size: [.2, .6], kind: 'wood' }); // only a boosted truck fells a tree
     queueSolid(x, z, .6, 'tree', () => {
       const now = performance.now(); if (now - lastHit < 250) return; lastHit = now;
       W.puff(x, z, 1.3, leaf); W.puff(x + .7, z - .4, .9, leaf);
       for (const k of shakes) if (k.mesh === mesh && k.i === i) { k.t = 0; return; }
       const base = new T.Matrix4(); mesh.getMatrixAt(i, base);
       shakes.push({ mesh, i, t: 0, base, ax: W.rand(-1, 1), az: W.rand(-1, 1) });
-    });
+    }, brk);
   }
   W.onUpdate((dt, now) => {
     wind.value = now / 1000;
@@ -345,7 +358,7 @@
           const sx = size * W.rand(.75, 1.3), sy = size * W.rand(.55, 1), sz = size * W.rand(.75, 1.3), warm = W.rand(-1, 1), b = W.rand(.78, 1.05);
           setInst(mesh, i, x, y - .32 * sy, z, W.rng() * 6.2832, sx, sy, sz, (1 + .07 * warm) * b, b, (1 - .07 * warm) * b, W.rand(-.4, .4), W.rand(-.4, .4));
           const rr = Math.max(sx, sz); F.rocks.push({ x, z, r: rr });
-          if (rr * 1.9 > 1) queueSolid(x, z, .85 * rr, 'rock');
+          if (rr * 1.9 > 1) queueSolid(x, z, .85 * rr, 'rock', null, instBreak(mesh, i, { at: 12, y: rr * .5, colors: ['#9aa1a6', '#7d8388', '#b4b9bd'], n: 10, size: [.12, .18 + .25 * rr], kind: 'rock' }));
           return Math.max(1.3, rr + .3);
         }
       });
@@ -386,7 +399,7 @@
       finish('reed', mesh, n, false);
     } catch (e) { console.error('foliage: reeds failed', e); }
 
-    for (const p of pending) { const s = W.solid(p.x, p.z, p.r, p.tag); if (p.onHit) s.onHit = p.onHit; }
+    for (const p of pending) { const s = W.solid(p.x, p.z, p.r, p.tag); if (p.onHit) s.onHit = p.onHit; if (p.brk) W.breakable(s, p.brk); }
     F.nearestTree = (x, z) => { let best = null, bd = 1e9; for (const t of F.trees) { const d = hyp(t.x - x, t.z - z); if (d < bd) { bd = d; best = t; } } return best ? Object.assign({ d: bd }, best) : null; };
     F.ready = true;
     F.stats = { ms: Math.round((performance.now() - t0) * 10) / 10, counts: Object.assign({}, counts), triangles, drawCalls: meshes.length, shadowCasters: meshes.filter(m => m.castShadow).length,

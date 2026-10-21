@@ -326,7 +326,7 @@
       box(CB, '#7a1d17', .6, -.1, -1.96, .35, .18, .06); box(CB, '#7a1d17', -.6, -.1, -1.96, .35, .18, .06);
       for (const [wx, wz] of [[.85, 1.25], [-.85, 1.25], [.85, -1.25], [-.85, -1.25]]) CB.add(wheelGeo(.32, .22, 10), M4(wx, -.48, wz), C.dark);
       const m = CB.build(); const p = F.to(u, v); m.position.set(p.x, 0, p.z); m.rotation.y = F.ry + (u > 5 ? PI : 0) + (W.rng() - .5) * .1;
-      W.pushable(m, .8, 1.3, { tag: 'car' }); BLD.meshes.push(m);
+      W.breakable(W.pushable(m, .8, 1.3, { tag: 'car' }), { at: 11, colors: [hex, hex, C.glass, C.dark, '#2b2e33'], n: 16, size: [.18, .55], kind: 'metal' }); BLD.meshes.push(m);
     }
     BLD.meshes.push(finish(B));
   }
@@ -426,7 +426,7 @@
       beam(B, C.dark, b.x - px * .9, yb + .1, b.z - pz * .9, b.x + px * .9, yb + .1, b.z + pz * .9, 1.0, 1.0, true);
       const s = F.to(6.5, 13), ys = G(s.x, s.z); cone(B, C.ore, s.x, ys - .3, s.z, 4.6, 3.8, 11); W.solid(s.x, s.z, 4.0, 'stockpile');
       const mats = ['#8c7b6a', '#6f6a66', '#a08a6a'].map(h => W.mat(h, { flat: true }));
-      const oreG = new T.DodecahedronGeometry(.7, 0); for (let i = 0; i < 8; i++) { const sc = .65 + W.rng() * .45, m = new T.Mesh(oreG, mats[i % 3]); m.scale.setScalar(sc); const q = F.to(3.5 + W.rng() * 2.5, 1.5 + W.rng() * 2.5); m.position.set(q.x, 0, q.z); /* the pocket clear of the conveyor legs */ m.rotation.set(W.rng() * 3, W.rng() * 3, 0); W.pushable(m, .6 * sc, .75 * sc, { tag: 'ore' }); BLD.meshes.push(m); } }
+      const oreG = new T.DodecahedronGeometry(.7, 0); for (let i = 0; i < 8; i++) { const sc = .65 + W.rng() * .45, m = new T.Mesh(oreG, mats[i % 3]); m.scale.setScalar(sc); const q = F.to(3.5 + W.rng() * 2.5, 1.5 + W.rng() * 2.5); m.position.set(q.x, 0, q.z); /* the pocket clear of the conveyor legs */ m.rotation.set(W.rng() * 3, W.rng() * 3, 0); W.breakable(W.pushable(m, .6 * sc, .75 * sc, { tag: 'ore' }), { at: 9, colors: ['#8c7b6a', '#6f6a66', '#a08a6a'], n: 8, size: [.1, .3 * sc], kind: 'rock' }); BLD.meshes.push(m); } }
     // site office (an Open T blue container), workshop, floodlight mast, sign
     { const y = fG(F, -9, 9.5) + .05; fbox(B, C.blue, F, -9, 9.5, y, 2.6, 2.7, 6.2); fbox(B, C.white, F, -9, 9.5, y + 2.7, 2.8, .15, 6.4); fbox(WIN, null, F, -9, 8.17, y + 1.1, .08, 1.0, 1.4); fbox(WIN, null, F, -7.5, 8.17, y + 1.1, .08, 1.0, 1.4); fbox(B, C.dark, F, -11, 8.17, y, .1, 2.0, .9); fsolid(F, -9, 9.5, 2.8, 6.4, 'office'); }
     { const y = fG(F, -2, 14) + .05; fbox(B, C.grey, F, -2, 14, y, 4.5, 4.2, 9); fbox(B, C.roof, F, -2, 14, y + 4.2, 4.8, .3, 9.3); fbox(B, '#3a3d42', F, -2, 11.72, y, .1, 3.2, 3.4); fsolid(F, -2, 14, 4.7, 9.2, 'workshop'); }

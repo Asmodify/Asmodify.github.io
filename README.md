@@ -28,6 +28,8 @@ No build step: edit and push to `main`.
 | `CONTRACT.md` | The `W` API every module is written against, plus the world plan with coordinates. |
 | `test/drive.mjs` | Headless test drive (Playwright + Chromium): boots the page, drives, reports errors, draw calls and screenshots. |
 
+Crates, cones, the name blocks, the SentimentAI bubbles, parked cars, ore rocks, trees and big rocks shatter when the truck hits them fast enough (`W.breakable` in CONTRACT.md); R puts them back.
+
 Script load order in `index.html` matters: core, audio, terrain, roads, buildings, stations, missions, foliage, main (foliage runs last so it keeps off ground the missions reserve).
 
 ## Controls

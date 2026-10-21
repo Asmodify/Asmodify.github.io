@@ -91,6 +91,19 @@
         const lp = filt('lowpass', 750, .8, v.g), ng = gn(0, lp); noise(v, t, t + .13, ng); env(ng.gain, t, .002, .7, 0, .11);
         tone(v, 'triangle', 430, t, .002, 0, .09, .25); done(v);
       },
+      crash(o, t) { // something shatters: a thud, a burst of splinters, then a few pieces clattering down
+        const a = clamp((+o.v || 10) / 20, .35, 1), kind = o.kind || 'wood', v = voice(t, { gain: .85 * a, echo: .12 }); if (!v) return;
+        const g = gn(0, v.g), th = osc(v, 'triangle', 150, t, t + .3, g); sweep(th.frequency, t, kind === 'rock' ? 90 : 150, t + .25, 38); env(g.gain, t, .004, 1, 0, .26);
+        const f = kind === 'glass' ? 5200 : kind === 'metal' ? 2400 : kind === 'rock' ? 900 : kind === 'plastic' ? 2000 : 1500, q = kind === 'glass' || kind === 'metal' ? 2.5 : 1.2;
+        const bp = filt('bandpass', f, q, v.g), ng = gn(0, bp); noise(v, t, t + .28, ng); env(ng.gain, t, .002, .9, .02, .22);
+        if (kind === 'metal') { tone(v, 'square', 340, t, .002, 0, .35, .18, 2500); tone(v, 'sine', 912, t + .01, .002, 0, .4, .12); }
+        if (kind === 'glass') for (let i = 0; i < 5; i++) tone(v, 'sine', 2600 + rnd() * 2400, t + .03 + i * .045, .002, 0, .12, .16);
+        for (let i = 0; i < 4; i++) { // the pieces landing
+          const tt = t + .12 + i * (.09 + rnd() * .07), cf = filt(kind === 'rock' ? 'lowpass' : 'highpass', kind === 'rock' ? 500 : 1800, 1, v.g), cg = gn(0, cf);
+          noise(v, tt, tt + .05, cg); env(cg.gain, tt, .001, .45 * (1 - i * .18), 0, .04);
+        }
+        done(v);
+      },
       hit(o, t) { // knocking a crate, cone or letter over: a wooden knock
         const a = clamp((+o.v || 8) / 20, .25, 1), v = voice(t, { gain: .6 * a }); if (!v) return;
         const g = gn(0, v.g), s = osc(v, 'sine', 260, t, t + .11, g); sweep(s.frequency, t, 260, t + .09, 95); env(g.gain, t, .003, 1, 0, .09);
